@@ -1,60 +1,39 @@
-name: Build
+name: Android Build
 
 on:
   push:
     branches:
-      - master
       - android
   pull_request:
+    branches:
+      - android
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Set up gradle caches
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
         with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-mgba-${{ hashFiles(
-           '**/*.gradle.kts',
-           '**/gradle-wrapper.properties',
-           '**/gradle.properties',
-           '**/settings.gradle.kts',
-           '**/libs.versions.toml'
-           ) }}
-          restore-keys: |
-            ${{ runner.os }}-mgba-
-
-      - name: Setup Java
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
-        with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
 
-      - name: Decode Keystore
-        env:
-          KEYSTORE_ENCODED: ${{ secrets.KEYSTORE }}
+      - name: Build Android Debug APK
+        working-directory: src/platform/android
         run: |
-          echo "$KEYSTORE_ENCODED" | base64 --decode > ${{ github.workspace }}/src/platform/android/app/ks.jks
-
-      - name: Build
-        env:
-          KEYSTORE_PATH: "ks.jks"
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
-        run: |
-          cd ./src/platform/android/
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: mGBA-android
-          path: |
-            ./src/platform/android/app/build/outputs/apk/debug/app-debug.apk
+          name: mgba-android-debug
+          path: src/platform/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
