@@ -140,10 +140,12 @@ class TouchControlsView @JvmOverloads constructor(
         fun alpha(base: Float) = (255 * base * opacity).toInt().coerceIn(0, 255)
         fillPaint.color = Color.argb(alpha(.26f), 35, 35, 35)
         pressedPaint.color = Color.argb(alpha(.34f), 35, 35, 35)
-        borderPaint.color = Color.argb(alpha(.20f), 224, 224, 224)
+        // Soft, slightly white outlines as on Strato's graphite overlay.
+        // Applies to the D-pad discs, A/B, L/R, and Start/Select equally.
+        borderPaint.color = Color.argb(alpha(.30f), 235, 235, 235)
         textPaint.color = Color.argb(alpha(.55f), 255, 255, 255)
         markerPaint.color = textPaint.color
-        borderPaint.strokeWidth = max(1f, resources.displayMetrics.density * .8f)
+        borderPaint.strokeWidth = max(1f, resources.displayMetrics.density * 1.1f)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
