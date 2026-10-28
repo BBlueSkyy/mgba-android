@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - android
   pull_request:
 
 jobs:
