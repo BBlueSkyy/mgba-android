@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - android
+      - 'feat/**'
+      - 'fix/**'
   pull_request:
     branches:
       - android
