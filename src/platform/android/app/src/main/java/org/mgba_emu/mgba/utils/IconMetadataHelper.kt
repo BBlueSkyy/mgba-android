@@ -52,9 +52,19 @@ object IconMetadataHelper {
         return "https://thumbnails.libretro.com/$encodedSystemFolder/Named_Boxarts/$encodedTitle.png"
     }
 
+    /**
+     * Prefer the artwork cached in the game record (including a manually selected
+     * content:// image). When No-Intro metadata is unavailable, try the ROM filename.
+     * Coil owns network requests and its disk/memory cache.
+     */
+    fun getCoverUrl(game: GameModel): String? {
+        return game.iconUrl?.takeIf { it.isNotBlank() }
+            ?: getIconUrl(game.fileName.substringBeforeLast('.'), game.platform ?: Platform.UNKNOWN)
+    }
+
     suspend fun getGameIcon(game: GameModel): Bitmap {
         val request = ImageRequest.Builder(mGBAApplication.context)
-            .data(game.iconUrl)
+            .data(getCoverUrl(game))
             .allowHardware(false)
             .error(R.mipmap.ic_launcher_monochrome)
             .build()

@@ -90,7 +90,7 @@ class GameAboutFragment : Fragment(R.layout.fragment_game_about) {
         }
 
         binding.title.text = args.game.title ?: args.game.fileName
-        (binding.gameIcon as AppCompatImageView).load(args.game.iconUrl) {
+        (binding.gameIcon as AppCompatImageView).load(IconMetadataHelper.getCoverUrl(args.game)) {
             crossfade(true)
             allowHardware(false)
             fallback(R.drawable.mgba)
