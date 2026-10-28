@@ -517,6 +517,17 @@ find_feature(USE_LIBZIP "libzip")
 find_feature(USE_EPOXY "epoxy")
 find_feature(USE_CMOCKA "cmocka")
 find_feature(USE_SQLITE3 "SQLite3|sqlite3")
+
+# Android's NDK does not ship SQLite3 headers. Host pkg-config may advertise
+# a desktop SQLite installation while cross-compiling, leaving the Android
+# target without sqlite3.h (and potentially linking against a host library).
+# Force mGBA's existing bundled SQLite fallback below instead.
+if(ANDROID AND WANT_SQLITE3)
+    set(USE_SQLITE3 OFF)
+    set(SQLITE3_INCLUDE_DIRS "")
+    set(SQLITE3_LIBRARY_DIRS "")
+    set(SQLITE3_LIBRARIES "")
+endif()
 find_feature(USE_ELF "libelf")
 find_feature(USE_FREETYPE "Freetype")
 find_feature(ENABLE_PYTHON "PythonLibs")
