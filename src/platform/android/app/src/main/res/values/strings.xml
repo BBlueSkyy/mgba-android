@@ -61,10 +61,10 @@
     <string name="pref_touch_size">Control size</string>
     <string name="pref_touch_size_description">Resize on-screen buttons without changing input behavior</string>
     <string name="menu_edit_touch_layout">Edit control positions</string>
-    <string name="menu_reset_touch_layout">Reset control positions</string>
+    <string name="menu_reset_touch_layout">Reset control positions and sizes</string>
     <string name="touch_layout_done">DONE</string>
-    <string name="touch_layout_hint">Drag the buttons to move them. Tap DONE to save.</string>
-    <string name="touch_layout_reset_done">Control positions reset</string>
+    <string name="touch_layout_hint">Tap a control, then use − / + or pinch to resize. Drag to move. Tap DONE to save.</string>
+    <string name="touch_layout_reset_done">Control positions and sizes reset</string>
     <string name="preferences_audio_description">Output engine, mute, volume</string>
     <string name="preferences_theme">Theme and color</string>
 
