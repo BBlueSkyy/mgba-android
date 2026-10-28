@@ -312,31 +312,31 @@ class TouchControlsView @JvmOverloads constructor(
                          doneRect.right + spacing + resizeWidth, toolbarBottom)
     }
 
-    // The classic GBA skin has neutral gray button faces and muted purple
-    // accents confined to button outlines and panel seams. Strato is unchanged.
+    // GBA Classic: opaque violet side panels with off-white physical-looking
+    // buttons and charcoal legends. The separate Strato style is unchanged.
     private val classicPanelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(26, 27, 31)
+        color = Color.rgb(75, 34, 140)
         style = Paint.Style.FILL
     }
     private val classicSeamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(112, 157, 109, 214)
+        color = Color.argb(110, 219, 201, 245)
         strokeWidth = resources.displayMetrics.density
         style = Paint.Style.STROKE
     }
     private val classicButtonFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(75, 75, 80)
+        color = Color.rgb(239, 239, 243)
         style = Paint.Style.FILL
     }
     private val classicButtonPressed = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(109, 109, 115)
+        color = Color.rgb(202, 202, 212)
         style = Paint.Style.FILL
     }
     private val classicWell = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(7, 8, 12)
+        color = Color.rgb(37, 30, 48)
         style = Paint.Style.FILL
     }
     private val classicHighlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(205, 169, 126, 226)
+        color = Color.argb(210, 36, 34, 44)
         style = Paint.Style.STROKE
         strokeWidth = 1.5f * resources.displayMetrics.density
     }
@@ -381,7 +381,9 @@ class TouchControlsView @JvmOverloads constructor(
         val centerDot = Paint(classicWell).apply { alpha = 125 }
         canvas.drawCircle(dpadCenterX, dpadCenterY, radius * .38f, centerDot)
 
-        val arrowPaint = Paint(markerPaint).apply { alpha = 115 }
+        val arrowPaint = Paint(markerPaint).apply {
+            color = Color.argb(205, 57, 55, 65)
+        }
         val m = radius * .24f
         fun arrow(x: Float, y: Float, direction: String) {
             val p = Path()
@@ -452,7 +454,7 @@ class TouchControlsView @JvmOverloads constructor(
             }
             val oldSize = textPaint.textSize
             val oldColor = textPaint.color
-            if (classic) textPaint.color = Color.argb(204, 224, 225, 230)
+            if (classic) textPaint.color = Color.rgb(50, 48, 60)
             textPaint.textSize = rect.height() * when {
                 control.shape == Shape.CIRCLE -> .42f
                 control.label.length == 1 -> .50f
