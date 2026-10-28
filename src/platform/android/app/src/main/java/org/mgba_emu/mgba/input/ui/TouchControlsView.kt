@@ -363,11 +363,11 @@ class TouchControlsView @JvmOverloads constructor(
         }
         canvas.drawPath(path, classicWell)
         val inner = Path().apply {
-            val inset = max(1f, 2.2f * resources.displayMetrics.density)
-            addRoundRect(RectF(vertical).apply { inset(inset, inset) },
+            val edgeInset = max(1f, 2.2f * resources.displayMetrics.density)
+            addRoundRect(RectF(vertical).apply { inset(edgeInset, edgeInset) },
                 radius * .18f, radius * .18f, Path.Direction.CW)
             val horizontalPath = Path().apply {
-                addRoundRect(RectF(horizontal).apply { inset(inset, inset) },
+                addRoundRect(RectF(horizontal).apply { inset(edgeInset, edgeInset) },
                     radius * .18f, radius * .18f, Path.Direction.CW)
             }
             op(horizontalPath, Path.Op.UNION)
