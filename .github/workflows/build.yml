@@ -37,16 +37,19 @@ jobs:
         run: |
           python3 - <<'PY'
           import zipfile
-          with zipfile.ZipFile('src/platform/android/app/build/outputs/apk/debug/app-debug.apk') as apk:
+          from pathlib import Path
+          apks = sorted(Path('src/platform/android/app/build/outputs/apk').rglob('*.apk'))
+          assert len(apks) == 1, f'Expected one Debug APK, found: {apks}'
+          with zipfile.ZipFile(apks[0]) as apk:
               abis = {name.split('/')[1] for name in apk.namelist() if name.startswith('lib/') and name.endswith('.so')}
               assert abis == {'arm64-v8a'}, f'Unexpected native ABIs: {abis}'
               assert 'lib/arm64-v8a/libmgba-android.so' in apk.namelist(), 'Missing mGBA Android native library'
-              print('Verified ARM64 Debug APK')
+              print(f'Verified ARM64 Debug APK: {apks[0]}')
           PY
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: mgba-android-debug
-          path: src/platform/android/app/build/outputs/apk/debug/app-debug.apk
+          path: src/platform/android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error
