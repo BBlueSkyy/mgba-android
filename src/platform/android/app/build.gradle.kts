@@ -31,7 +31,10 @@ android {
         versionName = "1.0"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+            // CI selects one ABI for both native builds and packaged dependencies.
+            val targetAbi = providers.gradleProperty("mgbaTargetAbi").orNull
+            abiFilters += targetAbi?.let { listOf(it) }
+                ?: listOf("arm64-v8a", "armeabi-v7a", "x86_64")
         }
 
         externalNativeBuild {
