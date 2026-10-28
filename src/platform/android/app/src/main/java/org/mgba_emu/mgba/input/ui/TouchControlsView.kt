@@ -174,18 +174,21 @@ class TouchControlsView @JvmOverloads constructor(
         val margin = w * 0.04f
 
         val dpadScale = s * controlScale("dpad")
-        dpadArmLength = w * 0.11f * dpadScale
-        dpadArmWidth = w * 0.09f * dpadScale
-        val (px, py) = savedCenter("dpad", margin + dpadArmLength, h - margin - dpadArmLength,
-            dpadArmLength, dpadArmLength)
+        // Strato-style direction buttons are four distinct translucent discs.
+        // armLength is the distance to a disc center; armWidth is its diameter.
+        dpadArmLength = w * 0.050f * dpadScale
+        dpadArmWidth = w * 0.058f * dpadScale
+        val dpadReach = dpadArmLength + dpadArmWidth / 2f
+        val (px, py) = savedCenter("dpad", margin + dpadReach, h - margin - dpadReach,
+            dpadReach, dpadReach)
         dpadCenterX = px
         dpadCenterY = py
 
         val radius = w * 0.055f * s
         val faceX = w - margin - radius * 2.2f
         val faceY = h - margin - radius * 2.2f
-        val radiusA = radius * controlScale("a")
-        val radiusB = radius * controlScale("b")
+        val radiusA = radius * 1.10f * controlScale("a")
+        val radiusB = radius * 0.90f * controlScale("b")
         addControl("a", GbaKey.A, "A", Shape.CIRCLE,
             faceX + radius * 1.3f, faceY, radiusA, radiusA)
         addControl("b", GbaKey.B, "B", Shape.CIRCLE,
@@ -300,35 +303,35 @@ class TouchControlsView @JvmOverloads constructor(
     private fun isKeyHeld(key: Int): Boolean = pointerKeys.values.any { it and key != 0 }
 
     private fun drawDpad(canvas: Canvas) {
-        val arm = dpadArmLength
-        val half = dpadArmWidth / 2
-        val vertical = RectF(dpadCenterX - half, dpadCenterY - arm,
-            dpadCenterX + half, dpadCenterY + arm)
-        val horizontal = RectF(dpadCenterX - arm, dpadCenterY - half,
-            dpadCenterX + arm, dpadCenterY + half)
-        val rad = half * .24f
-        val shape = Path().apply { addRoundRect(vertical, rad, rad, Path.Direction.CW) }
-        val other = Path().apply { addRoundRect(horizontal, rad, rad, Path.Direction.CW) }
-        shape.op(other, Path.Op.UNION)
-        val pressed = isKeyHeld(GbaKey.UP) || isKeyHeld(GbaKey.DOWN) ||
-            isKeyHeld(GbaKey.LEFT) || isKeyHeld(GbaKey.RIGHT)
-        canvas.drawPath(shape, if (pressed) pressedPaint else fillPaint)
-        canvas.drawPath(shape, borderPaint)
-        if (editing && selectedId == "dpad") {
-            val highlight = Paint(borderPaint).apply {
-                color = Color.argb(240, 255, 255, 255)
-                strokeWidth = 2.5f * resources.displayMetrics.density
-            }
-            canvas.drawPath(shape, highlight)
-        }
+        val radius = dpadArmWidth / 2f
+        val distance = dpadArmLength
 
-        val centerRadius = half * .45f
-        canvas.drawCircle(dpadCenterX, dpadCenterY, centerRadius, borderPaint)
-        val offset = arm * .62f
-        drawTriangle(canvas, dpadCenterX, dpadCenterY - offset, "up", half * .26f)
-        drawTriangle(canvas, dpadCenterX, dpadCenterY + offset, "down", half * .26f)
-        drawTriangle(canvas, dpadCenterX - offset, dpadCenterY, "left", half * .26f)
-        drawTriangle(canvas, dpadCenterX + offset, dpadCenterY, "right", half * .26f)
+        // Strato's D-pad consists of four independent outlined circular keys,
+        // not the single solid cross used in the previous mGBA overlay.
+        drawDirection(canvas, dpadCenterX, dpadCenterY - distance, radius,
+            GbaKey.UP, "up")
+        drawDirection(canvas, dpadCenterX - distance, dpadCenterY, radius,
+            GbaKey.LEFT, "left")
+        drawDirection(canvas, dpadCenterX + distance, dpadCenterY, radius,
+            GbaKey.RIGHT, "right")
+        drawDirection(canvas, dpadCenterX, dpadCenterY + distance, radius,
+            GbaKey.DOWN, "down")
+    }
+
+    private fun drawDirection(
+        canvas: Canvas, cx: Float, cy: Float, radius: Float,
+        key: Int, direction: String
+    ) {
+        canvas.drawCircle(cx, cy, radius, if (isKeyHeld(key)) pressedPaint else fillPaint)
+        canvas.drawCircle(cx, cy, radius, borderPaint)
+        if (editing && selectedId == "dpad") {
+            val selectedStroke = Paint(borderPaint).apply {
+                color = Color.argb(210, 236, 236, 236)
+                strokeWidth = 2f * resources.displayMetrics.density
+            }
+            canvas.drawCircle(cx, cy, radius, selectedStroke)
+        }
+        drawTriangle(canvas, cx, cy, direction, radius * .24f)
     }
 
     private fun drawTriangle(canvas: Canvas, x: Float, y: Float, direction: String, size: Float) {
@@ -486,15 +489,17 @@ class TouchControlsView @JvmOverloads constructor(
     private fun pickControl(x: Float, y: Float): String? {
         // Reverse order favors face buttons if edited layouts overlap.
         controls.asReversed().firstOrNull { it.rect.contains(x, y) }?.let { return it.id }
-        if (abs(x - dpadCenterX) <= dpadArmLength &&
-            abs(y - dpadCenterY) <= dpadArmLength) return "dpad"
+        val dpadReach = dpadArmLength + dpadArmWidth / 2f
+        if (abs(x - dpadCenterX) <= dpadReach &&
+            abs(y - dpadCenterY) <= dpadReach) return "dpad"
         return null
     }
 
     private fun shiftControl(id: String, dx: Float, dy: Float) {
         if (id == "dpad") {
-            dpadCenterX = (dpadCenterX + dx).coerceIn(dpadArmLength, max(dpadArmLength, width - dpadArmLength))
-            dpadCenterY = (dpadCenterY + dy).coerceIn(dpadArmLength, max(dpadArmLength, height - dpadArmLength))
+            val reach = dpadArmLength + dpadArmWidth / 2f
+            dpadCenterX = (dpadCenterX + dx).coerceIn(reach, max(reach, width - reach))
+            dpadCenterY = (dpadCenterY + dy).coerceIn(reach, max(reach, height - reach))
             return
         }
         val rect = controlById[id]?.rect ?: return
@@ -540,17 +545,26 @@ class TouchControlsView @JvmOverloads constructor(
         var keys = 0
         val dx = x - dpadCenterX
         val dy = y - dpadCenterY
-        val dist = hypot(dx.toDouble(), dy.toDouble()).toFloat()
-        if (dist <= dpadArmLength + dpadArmWidth / 2) {
-            val vertical = abs(dx) <= dpadArmWidth
-            val horizontal = abs(dy) <= dpadArmWidth
-            if (vertical && dy < -dpadArmWidth / 2) keys = keys or GbaKey.UP
-            if (vertical && dy > dpadArmWidth / 2) keys = keys or GbaKey.DOWN
-            if (horizontal && dx < -dpadArmWidth / 2) keys = keys or GbaKey.LEFT
-            if (horizontal && dx > dpadArmWidth / 2) keys = keys or GbaKey.RIGHT
-            if (!vertical && !horizontal) {
-                keys = keys or (if (dy < 0) GbaKey.UP else GbaKey.DOWN)
-                keys = keys or (if (dx < 0) GbaKey.LEFT else GbaKey.RIGHT)
+        val radius = dpadArmWidth / 2f
+        val distance = dpadArmLength
+        fun inDirection(centerX: Float, centerY: Float): Boolean =
+            hypot((x - centerX).toDouble(), (y - centerY).toDouble()) <= radius
+
+        if (inDirection(dpadCenterX, dpadCenterY - distance)) keys = keys or GbaKey.UP
+        if (inDirection(dpadCenterX, dpadCenterY + distance)) keys = keys or GbaKey.DOWN
+        if (inDirection(dpadCenterX - distance, dpadCenterY)) keys = keys or GbaKey.LEFT
+        if (inDirection(dpadCenterX + distance, dpadCenterY)) keys = keys or GbaKey.RIGHT
+
+        // Retain diagonals when sliding between adjacent directional discs.
+        // Avoid a virtual button at the empty center of the D-pad.
+        if (keys == 0) {
+            val radial = hypot(dx.toDouble(), dy.toDouble()).toFloat()
+            if (radial > radius * .55f && radial <= distance + radius) {
+                val threshold = radius * .36f
+                if (abs(dx) > threshold && abs(dy) > threshold) {
+                    keys = keys or (if (dx < 0) GbaKey.LEFT else GbaKey.RIGHT)
+                    keys = keys or (if (dy < 0) GbaKey.UP else GbaKey.DOWN)
+                }
             }
         }
 
