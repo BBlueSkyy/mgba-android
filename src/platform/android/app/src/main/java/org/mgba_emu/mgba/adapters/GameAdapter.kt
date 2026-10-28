@@ -51,7 +51,7 @@ class GameAdapter(
                 true
             }
 
-            binding.title.text = model.title ?: model.fileName
+            binding.title.text = IconMetadataHelper.getDisplayTitle(model)
             binding.platform.text = model.platform?.name ?: ""
             binding.icon.load(IconMetadataHelper.getCoverUrl(model)) {
                 crossfade(true)
