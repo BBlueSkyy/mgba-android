@@ -13,4 +13,8 @@
         android:id="@+id/menu_toggle_fps"
         android:title="@string/pref_show_fps"
         android:checkable="true" />
+    <item android:id="@+id/menu_edit_touch_layout"
+        android:title="@string/menu_edit_touch_layout" />
+    <item android:id="@+id/menu_reset_touch_layout"
+        android:title="@string/menu_reset_touch_layout" />
 </menu>

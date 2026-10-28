@@ -54,6 +54,17 @@
     <string name="preferences_graphics">Graphics</string>
     <string name="preferences_graphics_description">API, orientation, frame limit</string>
     <string name="preferences_audio">Audio</string>
+    <string name="preferences_controls">Touch Controls</string>
+    <string name="preferences_controls_description">Opacity, size, and control placement</string>
+    <string name="pref_touch_opacity">Control opacity</string>
+    <string name="pref_touch_opacity_description">Adjust the transparency of on-screen buttons</string>
+    <string name="pref_touch_size">Control size</string>
+    <string name="pref_touch_size_description">Resize on-screen buttons without changing input behavior</string>
+    <string name="menu_edit_touch_layout">Edit control positions</string>
+    <string name="menu_reset_touch_layout">Reset control positions</string>
+    <string name="touch_layout_done">DONE</string>
+    <string name="touch_layout_hint">Drag the buttons to move them. Tap DONE to save.</string>
+    <string name="touch_layout_reset_done">Control positions reset</string>
     <string name="preferences_audio_description">Output engine, mute, volume</string>
     <string name="preferences_theme">Theme and color</string>
 

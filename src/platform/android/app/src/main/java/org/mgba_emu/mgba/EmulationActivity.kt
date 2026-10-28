@@ -156,6 +156,10 @@ class EmulationActivity : AppCompatActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (binding.touchControlsView.isEditing) {
+                        binding.touchControlsView.finishEditing()
+                        return
+                    }
                     binding.drawerLayout.apply {
                         if (isOpen) close() else open()
                     }
@@ -216,6 +220,17 @@ class EmulationActivity : AppCompatActivity() {
                 R.id.menu_toggle_fps -> {
                     it.isChecked = !it.isChecked
                     Settings.fpsCounter.value = it.isChecked
+                    true
+                }
+                R.id.menu_edit_touch_layout -> {
+                    binding.drawerLayout.close()
+                    binding.touchControlsView.beginEditing()
+                    Toast.makeText(this, R.string.touch_layout_hint, Toast.LENGTH_LONG).show()
+                    true
+                }
+                R.id.menu_reset_touch_layout -> {
+                    binding.touchControlsView.resetPositions()
+                    Toast.makeText(this, R.string.touch_layout_reset_done, Toast.LENGTH_SHORT).show()
                     true
                 }
                 else -> true
@@ -327,6 +342,12 @@ class EmulationActivity : AppCompatActivity() {
 
     private fun setupTouchControls() {
         binding.touchControlsView.inputState = inputState
+        Settings.touchOpacity.flow.distinctUntilChanged().collect(this) {
+            binding.touchControlsView.setOpacity(it)
+        }
+        Settings.touchSize.flow.distinctUntilChanged().collect(this) {
+            binding.touchControlsView.setSize(it)
+        }
     }
 
     private fun loadRomFromUri(uri: Uri) {
