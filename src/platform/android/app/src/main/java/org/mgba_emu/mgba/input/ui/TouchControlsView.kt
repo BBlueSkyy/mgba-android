@@ -51,13 +51,10 @@ class TouchControlsView @JvmOverloads constructor(
     private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.argb(230, 245, 245, 245)
         textAlign = Paint.Align.CENTER
-        isFakeBoldText = true
     }
     private val markerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = Color.argb(220, 239, 239, 239)
     }
 
     private var opacityPercent = 38
@@ -137,11 +134,16 @@ class TouchControlsView @JvmOverloads constructor(
     }
 
     private fun updatePaints() {
-        val alpha = opacityPercent * 255 / 100
-        fillPaint.color = Color.argb(alpha, 154, 154, 154)
-        pressedPaint.color = Color.argb(min(255, alpha + 70), 205, 205, 205)
-        borderPaint.color = Color.argb(min(235, alpha + 75), 224, 224, 224)
-        borderPaint.strokeWidth = max(1f, resources.displayMetrics.density * 1.1f)
+        // The existing default (38%) is the reference appearance. Keep the slider
+        // proportional for fills, outlines and symbols, including saved settings.
+        val opacity = opacityPercent / 38f
+        fun alpha(base: Float) = (255 * base * opacity).toInt().coerceIn(0, 255)
+        fillPaint.color = Color.argb(alpha(.26f), 35, 35, 35)
+        pressedPaint.color = Color.argb(alpha(.34f), 35, 35, 35)
+        borderPaint.color = Color.argb(alpha(.20f), 224, 224, 224)
+        textPaint.color = Color.argb(alpha(.55f), 255, 255, 255)
+        markerPaint.color = textPaint.color
+        borderPaint.strokeWidth = max(1f, resources.displayMetrics.density * .8f)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
@@ -249,7 +251,16 @@ class TouchControlsView @JvmOverloads constructor(
                 }
             }
             val oldSize = textPaint.textSize
-            if (control.id == "select" || control.id == "start") textPaint.textSize = oldSize * .5f
+            textPaint.textSize = rect.height() * when {
+                control.shape == Shape.CIRCLE -> .42f
+                control.label.length == 1 -> .50f
+                else -> .38f
+            }
+            // Labels follow individual resizing and fit narrow portrait capsules.
+            val labelWidth = textPaint.measureText(control.label)
+            if (labelWidth > rect.width() * .8f) {
+                textPaint.textSize *= rect.width() * .8f / labelWidth
+            }
             canvas.drawText(control.label, rect.centerX(),
                 rect.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
             textPaint.textSize = oldSize
@@ -257,6 +268,8 @@ class TouchControlsView @JvmOverloads constructor(
         if (editing) {
             val p = Paint(fillPaint).apply { alpha = 205 }
             val previousSize = textPaint.textSize
+            val previousAlpha = textPaint.alpha
+            textPaint.alpha = 230 // Keep editor tools readable at low game opacity.
             val labelSize = max(14f * resources.displayMetrics.density, previousSize * .55f)
             textPaint.textSize = labelSize
             fun drawTool(rect: RectF, label: String, active: Boolean) {
@@ -280,6 +293,7 @@ class TouchControlsView @JvmOverloads constructor(
                 canvas.drawText(label, width / 2f, y, textPaint)
             }
             textPaint.textSize = previousSize
+            textPaint.alpha = previousAlpha
         }
     }
 
@@ -308,8 +322,8 @@ class TouchControlsView @JvmOverloads constructor(
             canvas.drawPath(shape, highlight)
         }
 
-        val centerRadius = half * .32f
-        canvas.drawCircle(dpadCenterX, dpadCenterY, centerRadius, markerPaint)
+        val centerRadius = half * .45f
+        canvas.drawCircle(dpadCenterX, dpadCenterY, centerRadius, borderPaint)
         val offset = arm * .62f
         drawTriangle(canvas, dpadCenterX, dpadCenterY - offset, "up", half * .26f)
         drawTriangle(canvas, dpadCenterX, dpadCenterY + offset, "down", half * .26f)
@@ -333,7 +347,7 @@ class TouchControlsView @JvmOverloads constructor(
         if (!::inputState.isInitialized) { pointerKeys.clear(); return }
         val held = pointerKeys.values.fold(0) { mask, value -> mask or value }
         var bit = 1
-        while (bit <= GbaKey.R) {
+        while (bit <= max(GbaKey.L, GbaKey.R)) {
             if ((held and bit) != 0) inputState.release(bit)
             bit = bit shl 1
         }
@@ -505,7 +519,7 @@ class TouchControlsView @JvmOverloads constructor(
         val pressed = newKeys and previous.inv()
         if (released != 0) releaseIfNotHeldElsewhere(released, pointerId)
         var bit = 1
-        while (bit <= GbaKey.R) {
+        while (bit <= max(GbaKey.L, GbaKey.R)) {
             if (pressed and bit != 0) inputState.press(bit)
             bit = bit shl 1
         }
@@ -513,7 +527,7 @@ class TouchControlsView @JvmOverloads constructor(
 
     private fun releaseIfNotHeldElsewhere(keys: Int, excludePointer: Int) {
         var bit = 1
-        while (bit <= GbaKey.R) {
+        while (bit <= max(GbaKey.L, GbaKey.R)) {
             if (keys and bit != 0 &&
                 pointerKeys.entries.none { (id, mask) -> id != excludePointer && mask and bit != 0 }) {
                 inputState.release(bit)
