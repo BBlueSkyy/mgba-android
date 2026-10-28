@@ -57,6 +57,7 @@ class TouchControlsView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
+    private var layoutStyle = 0 // 0=Strato overlay, 1=classic GBA side panels
     private var opacityPercent = 38
     private var sizePercent = 100
     private val sizeFactor get() = sizePercent / 100f
@@ -116,6 +117,19 @@ class TouchControlsView @JvmOverloads constructor(
         updatePaints()
     }
 
+    fun setLayoutStyle(style: Int) {
+        val selected = if (style == 1) 1 else 0
+        if (layoutStyle == selected) return
+        clearHeldKeys()
+        finishEditing()
+        layoutStyle = selected
+        layoutControls(width, height)
+        invalidate()
+    }
+
+    private fun isClassicLayout(): Boolean =
+        layoutStyle == 1 && width > height
+
     fun setOpacity(percent: Int) {
         val clamped = percent.coerceIn(10, 90)
         if (opacityPercent == clamped) return
@@ -154,7 +168,9 @@ class TouchControlsView @JvmOverloads constructor(
         layoutControls(w, h)
     }
 
-    private fun orientationKey(): String = if (width >= height) "landscape" else "portrait"
+    private fun orientationKey(): String =
+        if (isClassicLayout()) "classic_landscape"
+        else if (width >= height) "landscape" else "portrait"
 
     private fun savedCenter(id: String, defaultX: Float, defaultY: Float, halfW: Float, halfH: Float): Pair<Float, Float> {
         val key = orientationKey() + "_" + id
@@ -172,6 +188,10 @@ class TouchControlsView @JvmOverloads constructor(
     private fun layoutControls(w: Int, h: Int) {
         if (w <= 0 || h <= 0) return
         controls.clear()
+        if (isClassicLayout()) {
+            layoutClassicControls(w, h)
+            return
+        }
         val s = sizeFactor
         val margin = w * 0.04f
 
@@ -229,20 +249,193 @@ class TouchControlsView @JvmOverloads constructor(
         textPaint.textSize = max(17f * resources.displayMetrics.density, min(w, h) * .045f * s)
     }
 
+    private fun layoutClassicControls(w: Int, h: Int) {
+        val panel = ClassicLayoutGeometry.panelWidth(w, h).toFloat()
+        val s = sizeFactor
+        val dpadScale = (s * controlScale("dpad")).coerceIn(0.30f, 1.90f)
+        // Clamp the D-pad to its side panel when scaling it individually.
+        val reach = panel * .43f
+        dpadArmLength = min(panel * .19f * dpadScale, reach * .55f)
+        dpadArmWidth = min(panel * .33f * dpadScale, 2f * (reach - dpadArmLength))
+        val (px, py) = savedCenter("dpad", panel * .51f, h * .58f,
+            dpadArmLength + dpadArmWidth / 2f, dpadArmLength + dpadArmWidth / 2f)
+        dpadCenterX = px
+        dpadCenterY = py
+
+        val faceRadius = panel * .29f * s
+        val radiusA = min(faceRadius * controlScale("a"), panel * .40f)
+        val radiusB = min(faceRadius * .88f * controlScale("b"), panel * .39f)
+        addControl("a", GbaKey.A, "A", Shape.CIRCLE,
+            w - panel * .40f, h * .48f, radiusA, radiusA)
+        addControl("b", GbaKey.B, "B", Shape.CIRCLE,
+            w - panel * .66f, h * .69f, radiusB, radiusB)
+
+        val shoulderHalfW = panel * .39f * s
+        val shoulderHalfH = min(h * .052f * s, panel * .14f)
+        addControl("l", GbaKey.L, "L", Shape.PILL,
+            panel * .5f, h * .13f,
+            min(shoulderHalfW * controlScale("l"), panel * .46f),
+            min(shoulderHalfH * controlScale("l"), h * .095f))
+        addControl("r", GbaKey.R, "R", Shape.PILL,
+            w - panel * .5f, h * .13f,
+            min(shoulderHalfW * controlScale("r"), panel * .46f),
+            min(shoulderHalfH * controlScale("r"), h * .095f))
+
+        // Start/Select stay in the black panels rather than obscuring the game.
+        val smallHalfW = panel * .31f * s
+        val smallHalfH = max(13f * resources.displayMetrics.density, h * .027f) * s
+        addControl("select", GbaKey.SELECT, "SELECT", Shape.PILL,
+            panel * .50f, h * .85f,
+            min(smallHalfW * controlScale("select"), panel * .44f),
+            min(smallHalfH * controlScale("select"), h * .065f))
+        addControl("start", GbaKey.START, "START", Shape.PILL,
+            w - panel * .50f, h * .85f,
+            min(smallHalfW * controlScale("start"), panel * .44f),
+            min(smallHalfH * controlScale("start"), h * .065f))
+
+        positionEditorTools(w)
+        textPaint.textSize = max(17f * resources.displayMetrics.density, min(w, h) * .045f * s)
+    }
+
+    private fun positionEditorTools(w: Int) {
+        val density = resources.displayMetrics.density
+        val toolbarTop = 10f * density
+        val toolbarBottom = 50f * density
+        val doneWidth = max(84f * density, w * .13f)
+        val resizeWidth = 52f * density
+        val spacing = 10f * density
+        doneRect.set(w / 2f - doneWidth / 2, toolbarTop,
+                     w / 2f + doneWidth / 2, toolbarBottom)
+        decreaseRect.set(doneRect.left - spacing - resizeWidth, toolbarTop,
+                         doneRect.left - spacing, toolbarBottom)
+        increaseRect.set(doneRect.right + spacing, toolbarTop,
+                         doneRect.right + spacing + resizeWidth, toolbarBottom)
+    }
+
+    private val classicPanelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(26, 27, 31)
+        style = Paint.Style.FILL
+    }
+    private val classicSeamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(65, 205, 206, 214)
+        strokeWidth = resources.displayMetrics.density
+        style = Paint.Style.STROKE
+    }
+    private val classicButtonFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(49, 51, 57)
+        style = Paint.Style.FILL
+    }
+    private val classicButtonPressed = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(94, 96, 103)
+        style = Paint.Style.FILL
+    }
+    private val classicWell = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.rgb(7, 8, 12)
+        style = Paint.Style.FILL
+    }
+    private val classicHighlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(86, 236, 237, 242)
+        style = Paint.Style.STROKE
+        strokeWidth = 1.2f * resources.displayMetrics.density
+    }
+
+    private fun drawClassicBackground(canvas: Canvas) {
+        val panel = ClassicLayoutGeometry.panelWidth(width, height).toFloat()
+        canvas.drawRect(0f, 0f, panel, height.toFloat(), classicPanelPaint)
+        canvas.drawRect(width - panel, 0f, width.toFloat(), height.toFloat(), classicPanelPaint)
+        canvas.drawLine(panel, 0f, panel, height.toFloat(), classicSeamPaint)
+        canvas.drawLine(width - panel, 0f, width - panel, height.toFloat(), classicSeamPaint)
+    }
+
+    private fun drawClassicDpad(canvas: Canvas) {
+        val distance = dpadArmLength
+        val radius = dpadArmWidth / 2f
+        val vertical = RectF(dpadCenterX - radius, dpadCenterY - distance - radius,
+            dpadCenterX + radius, dpadCenterY + distance + radius)
+        val horizontal = RectF(dpadCenterX - distance - radius, dpadCenterY - radius,
+            dpadCenterX + distance + radius, dpadCenterY + radius)
+        val path = Path().apply {
+            addRoundRect(vertical, radius * .22f, radius * .22f, Path.Direction.CW)
+            val horizontalPath = Path().apply {
+                addRoundRect(horizontal, radius * .22f, radius * .22f, Path.Direction.CW)
+            }
+            op(horizontalPath, Path.Op.UNION)
+        }
+        canvas.drawPath(path, classicWell)
+        val inner = Path().apply {
+            val inset = max(1f, 2.2f * resources.displayMetrics.density)
+            addRoundRect(RectF(vertical).apply { inset(inset, inset) },
+                radius * .18f, radius * .18f, Path.Direction.CW)
+            val horizontalPath = Path().apply {
+                addRoundRect(RectF(horizontal).apply { inset(inset, inset) },
+                    radius * .18f, radius * .18f, Path.Direction.CW)
+            }
+            op(horizontalPath, Path.Op.UNION)
+        }
+        val held = isKeyHeld(GbaKey.UP) || isKeyHeld(GbaKey.DOWN) ||
+            isKeyHeld(GbaKey.LEFT) || isKeyHeld(GbaKey.RIGHT)
+        canvas.drawPath(inner, if (held) classicButtonPressed else classicButtonFill)
+        canvas.drawPath(path, classicHighlight)
+        val centerDot = Paint(classicWell).apply { alpha = 125 }
+        canvas.drawCircle(dpadCenterX, dpadCenterY, radius * .38f, centerDot)
+
+        val arrowPaint = Paint(markerPaint).apply { alpha = 115 }
+        val m = radius * .24f
+        fun arrow(x: Float, y: Float, direction: String) {
+            val p = Path()
+            when (direction) {
+                "up" -> { p.moveTo(x, y - m); p.lineTo(x - m, y + m); p.lineTo(x + m, y + m) }
+                "down" -> { p.moveTo(x, y + m); p.lineTo(x - m, y - m); p.lineTo(x + m, y - m) }
+                "left" -> { p.moveTo(x - m, y); p.lineTo(x + m, y - m); p.lineTo(x + m, y + m) }
+                else -> { p.moveTo(x + m, y); p.lineTo(x - m, y - m); p.lineTo(x - m, y + m) }
+            }
+            p.close()
+            canvas.drawPath(p, arrowPaint)
+        }
+        arrow(dpadCenterX, dpadCenterY - distance, "up")
+        arrow(dpadCenterX, dpadCenterY + distance, "down")
+        arrow(dpadCenterX - distance, dpadCenterY, "left")
+        arrow(dpadCenterX + distance, dpadCenterY, "right")
+        if (editing && selectedId == "dpad") {
+            canvas.drawPath(path, Paint(classicHighlight).apply {
+                strokeWidth = 2.5f * resources.displayMetrics.density
+                color = Color.argb(230, 250, 250, 250)
+            })
+        }
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        drawDpad(canvas)
+        if (isClassicLayout()) {
+            drawClassicBackground(canvas)
+            drawClassicDpad(canvas)
+        } else {
+            drawDpad(canvas)
+        }
         controls.forEach { control ->
-            val paint = if (isKeyHeld(control.key)) pressedPaint else fillPaint
+            val classic = isClassicLayout()
+            val paint = if (classic) {
+                if (isKeyHeld(control.key)) classicButtonPressed else classicButtonFill
+            } else {
+                if (isKeyHeld(control.key)) pressedPaint else fillPaint
+            }
             val rect = control.rect
             if (control.shape == Shape.CIRCLE) {
                 val r = rect.width() / 2
+                if (classic) canvas.drawCircle(rect.centerX(), rect.centerY(),
+                    r + 3f * resources.displayMetrics.density, classicWell)
                 canvas.drawCircle(rect.centerX(), rect.centerY(), r, paint)
-                canvas.drawCircle(rect.centerX(), rect.centerY(), r, borderPaint)
+                canvas.drawCircle(rect.centerX(), rect.centerY(), r,
+                    if (classic) classicHighlight else borderPaint)
             } else {
                 val corner = rect.height() / 2
+                if (classic) {
+                    val outer = RectF(rect).apply { inset(-2f * resources.displayMetrics.density, -2f * resources.displayMetrics.density) }
+                    canvas.drawRoundRect(outer, outer.height() / 2, outer.height() / 2, classicWell)
+                }
                 canvas.drawRoundRect(rect, corner, corner, paint)
-                canvas.drawRoundRect(rect, corner, corner, borderPaint)
+                canvas.drawRoundRect(rect, corner, corner,
+                    if (classic) classicHighlight else borderPaint)
             }
             if (editing && selectedId == control.id) {
                 val highlight = Paint(borderPaint).apply {
@@ -256,6 +449,8 @@ class TouchControlsView @JvmOverloads constructor(
                 }
             }
             val oldSize = textPaint.textSize
+            val oldColor = textPaint.color
+            if (classic) textPaint.color = Color.argb(204, 224, 225, 230)
             textPaint.textSize = rect.height() * when {
                 control.shape == Shape.CIRCLE -> .42f
                 control.label.length == 1 -> .50f
@@ -269,6 +464,7 @@ class TouchControlsView @JvmOverloads constructor(
             canvas.drawText(control.label, rect.centerX(),
                 rect.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
             textPaint.textSize = oldSize
+            textPaint.color = oldColor
         }
         if (editing) {
             val p = Paint(fillPaint).apply { alpha = 205 }

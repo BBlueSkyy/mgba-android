@@ -154,6 +154,15 @@ class SettingsFragmentPresenter(
     private fun addTouchSettings(sl: ArrayList<SettingsItem>) {
         sl.apply {
             add(
+                IntSetting(
+                    setting = Settings.touchLayoutStyle,
+                    titleId = R.string.pref_touch_layout_style,
+                    descriptionId = R.string.pref_touch_layout_style_description,
+                    choicesId = R.array.touch_layout_style_entries,
+                    valuesId = R.array.touch_layout_style_values
+                )
+            )
+            add(
                 SliderSetting(
                     setting = Settings.touchOpacity,
                     titleId = R.string.pref_touch_opacity,

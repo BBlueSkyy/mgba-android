@@ -13,6 +13,7 @@ package org.mgba_emu.mgba.renderer.gl
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import org.mgba_emu.mgba.settings.model.Settings
+import org.mgba_emu.mgba.input.ui.ClassicLayoutGeometry
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.FloatBuffer
@@ -32,6 +33,8 @@ class OpenGLRenderer(
 
     private var surfaceWidth = 0
     private var surfaceHeight = 0
+
+    @Volatile var classicMode: Boolean = false
 
     private var textureWidth = 0
     private var textureHeight = 0
@@ -97,6 +100,9 @@ class OpenGLRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
+        // Reset the full viewport before clearing, including any previous
+        // letterbox/pillarbox regions when the control style changes.
+        GLES20.glViewport(0, 0, surfaceWidth, surfaceHeight)
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
         val frame = frameBuffer.acquireLatest() ?: return // nothing published yet - just show the clear color
@@ -150,21 +156,27 @@ class OpenGLRenderer(
 
     private fun maintainAspectViewport(coreWidth: Int, coreHeight: Int) {
         if (coreWidth <= 0 || coreHeight <= 0 || surfaceWidth <= 0 || surfaceHeight <= 0) return
+
+        // Classic mode reserves the same side regions as TouchControlsView.
+        // The GBA/GB framebuffer is still aspect-fitted; never stretch or crop it.
+        val reserved = if (classicMode && surfaceWidth > surfaceHeight)
+            ClassicLayoutGeometry.panelWidth(surfaceWidth, surfaceHeight) else 0
+        val availableWidth = (surfaceWidth - 2 * reserved).coerceAtLeast(1)
         val targetAspect = coreWidth.toFloat() / coreHeight.toFloat()
-        val surfaceAspect = surfaceWidth.toFloat() / surfaceHeight.toFloat()
+        val availableAspect = availableWidth.toFloat() / surfaceHeight.toFloat()
 
-        var vpW = surfaceWidth
-        var vpH = surfaceHeight
-        var vpX = 0
-        var vpY = 0
-
-        if (surfaceAspect > targetAspect) {
-            vpW = (surfaceHeight * targetAspect).toInt()
-            vpX = (surfaceWidth - vpW) / 2
+        val vpW: Int
+        val vpH: Int
+        if (availableAspect > targetAspect) {
+            vpW = (surfaceHeight * targetAspect).toInt().coerceAtMost(availableWidth)
+            vpH = surfaceHeight
         } else {
-            vpH = (surfaceWidth / targetAspect).toInt()
-            vpY = (surfaceHeight - vpH) / 2
+            vpW = availableWidth
+            vpH = (availableWidth / targetAspect).toInt().coerceAtMost(surfaceHeight)
         }
+        // Center in the real surface, not in a single side panel.
+        val vpX = (surfaceWidth - vpW) / 2
+        val vpY = (surfaceHeight - vpH) / 2
         GLES20.glViewport(vpX, vpY, vpW, vpH)
     }
 

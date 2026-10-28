@@ -58,6 +58,7 @@ object Settings {
     val fastForward = BoolPref("pref_fast_forward", false)
 
     // Touch controls
+    val touchLayoutStyle = IntPref("pref_touch_layout_style", 0)
     val touchOpacity = IntPref("pref_touch_opacity", 38)
     val touchSize = IntPref("pref_touch_size", 100)
 

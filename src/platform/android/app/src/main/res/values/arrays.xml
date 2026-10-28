@@ -8,6 +8,15 @@
   -->
 
 <resources>
+    <string-array name="touch_layout_style_entries">
+        <item>Strato (translucent)</item>
+        <item>GBA Classic (side panels)</item>
+    </string-array>
+    <integer-array name="touch_layout_style_values">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
     <string-array name="screen_orientation_entries">
         <item>Landscape (Auto)</item>
         <item>Landscape (Force)</item>

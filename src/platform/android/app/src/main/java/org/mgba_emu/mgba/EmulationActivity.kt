@@ -59,6 +59,7 @@ class EmulationActivity : AppCompatActivity() {
     private lateinit var binding: ActivityEmulationBinding
     private lateinit var inputState: InputState
     private lateinit var glSurfaceView: GLSurfaceView
+    private lateinit var glRenderer: OpenGLRenderer
     private lateinit var frameBuffer: FrameBuffer
 
     private var currentGame: GameModel? = null
@@ -335,13 +336,21 @@ class EmulationActivity : AppCompatActivity() {
     private fun setupGlSurface() {
         glSurfaceView = binding.glSurfaceView
         glSurfaceView.setEGLContextClientVersion(2)
-        glSurfaceView.setRenderer(OpenGLRenderer(frameBuffer))
+        glRenderer = OpenGLRenderer(frameBuffer)
+        glSurfaceView.setRenderer(glRenderer)
         glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
 
     }
 
     private fun setupTouchControls() {
         binding.touchControlsView.inputState = inputState
+        Settings.touchLayoutStyle.flow.distinctUntilChanged().collect(this) { style ->
+            // Shared mode setting controls BOTH visible hit areas and GL viewport.
+            // @Volatile flag is read by the GL thread when it next draws a frame.
+            glRenderer.classicMode = (style == 1)
+            binding.touchControlsView.setLayoutStyle(style)
+            glSurfaceView.requestRender()
+        }
         Settings.touchOpacity.flow.distinctUntilChanged().collect(this) {
             binding.touchControlsView.setOpacity(it)
         }
