@@ -312,21 +312,23 @@ class TouchControlsView @JvmOverloads constructor(
                          doneRect.right + spacing + resizeWidth, toolbarBottom)
     }
 
+    // The classic GBA skin has neutral gray button faces and muted purple
+    // accents confined to button outlines and panel seams. Strato is unchanged.
     private val classicPanelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.rgb(26, 27, 31)
         style = Paint.Style.FILL
     }
     private val classicSeamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(65, 205, 206, 214)
+        color = Color.argb(112, 157, 109, 214)
         strokeWidth = resources.displayMetrics.density
         style = Paint.Style.STROKE
     }
     private val classicButtonFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(49, 51, 57)
+        color = Color.rgb(75, 75, 80)
         style = Paint.Style.FILL
     }
     private val classicButtonPressed = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(94, 96, 103)
+        color = Color.rgb(109, 109, 115)
         style = Paint.Style.FILL
     }
     private val classicWell = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -334,9 +336,9 @@ class TouchControlsView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
     private val classicHighlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(86, 236, 237, 242)
+        color = Color.argb(205, 169, 126, 226)
         style = Paint.Style.STROKE
-        strokeWidth = 1.2f * resources.displayMetrics.density
+        strokeWidth = 1.5f * resources.displayMetrics.density
     }
 
     private fun drawClassicBackground(canvas: Canvas) {
