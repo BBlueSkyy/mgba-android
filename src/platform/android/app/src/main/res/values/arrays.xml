@@ -9,7 +9,7 @@
 
 <resources>
     <string-array name="touch_layout_style_entries">
-        <item>Strato (translucent)</item>
+        <item>Default</item>
         <item>GBA Classic (side panels)</item>
     </string-array>
     <integer-array name="touch_layout_style_values">
