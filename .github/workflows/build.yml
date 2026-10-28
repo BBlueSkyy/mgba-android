@@ -36,20 +36,33 @@ jobs:
       - name: Verify ARM64 APK
         run: |
           python3 - <<'PY'
+          import hashlib
+          import os
+          import shutil
           import zipfile
           from pathlib import Path
-          apks = sorted(Path('src/platform/android/app/build/outputs/apk').rglob('*.apk'))
-          assert len(apks) == 1, f'Expected one Debug APK, found: {apks}'
-          with zipfile.ZipFile(apks[0]) as apk:
-              abis = {name.split('/')[1] for name in apk.namelist() if name.startswith('lib/') and name.endswith('.so')}
-              assert abis == {'arm64-v8a'}, f'Unexpected native ABIs: {abis}'
-              assert 'lib/arm64-v8a/libmgba-android.so' in apk.namelist(), 'Missing mGBA Android native library'
-              print(f'Verified ARM64 Debug APK: {apks[0]}')
+          workspace = Path(os.environ['GITHUB_WORKSPACE']).resolve()
+          apks = sorted(workspace.rglob('*.apk'))
+          print(f'Workspace: {workspace}')
+          print(f'Generated APKs: {apks}', flush=True)
+          assert apks, 'No APK found in the GitHub workspace after assembleDebug'
+          digests = set()
+          for apk_path in apks:
+              with zipfile.ZipFile(apk_path) as apk:
+                  abis = {name.split('/')[1] for name in apk.namelist() if name.startswith('lib/') and name.endswith('.so')}
+                  assert abis == {'arm64-v8a'}, f'Unexpected native ABIs in {apk_path}: {abis}'
+                  assert 'lib/arm64-v8a/libmgba-android.so' in apk.namelist(), f'Missing mGBA Android native library: {apk_path}'
+              digests.add(hashlib.sha256(apk_path.read_bytes()).hexdigest())
+          assert len(digests) == 1, f'Multiple different APKs found: {apks}'
+          destination = workspace / 'artifacts' / 'mgba-android-arm64-debug.apk'
+          destination.parent.mkdir(parents=True, exist_ok=True)
+          shutil.copy2(apks[0], destination)
+          print(f'Verified ARM64 Debug APK: {destination}')
           PY
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: mgba-android-debug
-          path: src/platform/android/app/build/outputs/apk/**/*.apk
+          path: ${{ github.workspace }}/artifacts/mgba-android-arm64-debug.apk
           if-no-files-found: error
