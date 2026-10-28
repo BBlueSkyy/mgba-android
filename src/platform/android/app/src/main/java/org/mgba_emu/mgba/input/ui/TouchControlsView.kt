@@ -76,6 +76,43 @@ class TouchControlsView @JvmOverloads constructor(
     private var lastEditX = 0f
     private var lastEditY = 0f
     private val doneRect = RectF()
+    private val decreaseRect = RectF()
+    private val increaseRect = RectF()
+    private var selectedId: String? = null
+    private var editAction: String? = null
+    private var pinchActive = false
+    private var pinchInitialDistance = 0f
+    private var pinchInitialScale = 1f
+
+    // Extra scaling for a single control, persisted per orientation.
+    private fun controlScale(id: String): Float {
+        val key = orientationKey() + "_" + id + "_scale"
+        return positions.getFloat(key, 1f).coerceIn(0.55f, 1.65f)
+    }
+
+    private fun resizeSelected(delta: Float) {
+        val id = selectedId ?: return
+        setControlScale(id, controlScale(id) + delta)
+    }
+
+    private fun setControlScale(id: String, requested: Float) {
+        val scale = requested.coerceIn(0.55f, 1.65f)
+        if (abs(scale - controlScale(id)) < 0.002f) return
+
+        // Preserve a previously dragged center before rebuilding the geometry.
+        saveControl(id)
+        positions.edit()
+            .putFloat(orientationKey() + "_" + id + "_scale", scale)
+            .apply()
+        layoutControls(width, height)
+        invalidate()
+    }
+
+    private fun pinchDistance(event: MotionEvent): Float {
+        if (event.pointerCount < 2) return 0f
+        return hypot((event.getX(0) - event.getX(1)).toDouble(),
+            (event.getY(0) - event.getY(1)).toDouble()).toFloat()
+    }
 
     init {
         isClickable = true
@@ -134,8 +171,9 @@ class TouchControlsView @JvmOverloads constructor(
         val s = sizeFactor
         val margin = w * 0.04f
 
-        dpadArmLength = w * 0.11f * s
-        dpadArmWidth = w * 0.09f * s
+        val dpadScale = s * controlScale("dpad")
+        dpadArmLength = w * 0.11f * dpadScale
+        dpadArmWidth = w * 0.09f * dpadScale
         val (px, py) = savedCenter("dpad", margin + dpadArmLength, h - margin - dpadArmLength,
             dpadArmLength, dpadArmLength)
         dpadCenterX = px
@@ -144,27 +182,43 @@ class TouchControlsView @JvmOverloads constructor(
         val radius = w * 0.055f * s
         val faceX = w - margin - radius * 2.2f
         val faceY = h - margin - radius * 2.2f
+        val radiusA = radius * controlScale("a")
+        val radiusB = radius * controlScale("b")
         addControl("a", GbaKey.A, "A", Shape.CIRCLE,
-            faceX + radius * 1.3f, faceY, radius, radius)
+            faceX + radius * 1.3f, faceY, radiusA, radiusA)
         addControl("b", GbaKey.B, "B", Shape.CIRCLE,
-            faceX, faceY + radius * 1.3f, radius, radius)
+            faceX, faceY + radius * 1.3f, radiusB, radiusB)
 
         val smallW = w * 0.09f * s
         val smallH = max(h * 0.045f, 28f * resources.displayMetrics.density) * s
         val centerX = w / 2f
         addControl("select", GbaKey.SELECT, "SELECT", Shape.PILL,
-            centerX - smallW * 0.6f, h - margin - smallH / 2, smallW / 2, smallH / 2)
+            centerX - smallW * 0.6f, h - margin - smallH / 2,
+            smallW / 2 * controlScale("select"), smallH / 2 * controlScale("select"))
         addControl("start", GbaKey.START, "START", Shape.PILL,
-            centerX + smallW * 0.6f, h - margin - smallH / 2, smallW / 2, smallH / 2)
+            centerX + smallW * 0.6f, h - margin - smallH / 2,
+            smallW / 2 * controlScale("start"), smallH / 2 * controlScale("start"))
 
         val shoulderW = w * 0.13f * s
         val shoulderH = max(h * 0.06f, 30f * resources.displayMetrics.density) * s
         addControl("l", GbaKey.L, "L", Shape.PILL,
-            margin + shoulderW / 2, margin + shoulderH / 2, shoulderW / 2, shoulderH / 2)
+            margin + shoulderW / 2, margin + shoulderH / 2,
+            shoulderW / 2 * controlScale("l"), shoulderH / 2 * controlScale("l"))
         addControl("r", GbaKey.R, "R", Shape.PILL,
-            w - margin - shoulderW / 2, margin + shoulderH / 2, shoulderW / 2, shoulderH / 2)
-        doneRect.set(w / 2f - w * .075f, 10f * resources.displayMetrics.density,
-                     w / 2f + w * .075f, 50f * resources.displayMetrics.density)
+            w - margin - shoulderW / 2, margin + shoulderH / 2,
+            shoulderW / 2 * controlScale("r"), shoulderH / 2 * controlScale("r"))
+        val density = resources.displayMetrics.density
+        val toolbarTop = 10f * density
+        val toolbarBottom = 50f * density
+        val doneWidth = max(84f * density, w * .13f)
+        val resizeWidth = 52f * density
+        val spacing = 10f * density
+        doneRect.set(w / 2f - doneWidth / 2, toolbarTop,
+                     w / 2f + doneWidth / 2, toolbarBottom)
+        decreaseRect.set(doneRect.left - spacing - resizeWidth, toolbarTop,
+                         doneRect.left - spacing, toolbarBottom)
+        increaseRect.set(doneRect.right + spacing, toolbarTop,
+                         doneRect.right + spacing + resizeWidth, toolbarBottom)
         textPaint.textSize = max(17f * resources.displayMetrics.density, min(w, h) * .045f * s)
     }
 
@@ -183,6 +237,17 @@ class TouchControlsView @JvmOverloads constructor(
                 canvas.drawRoundRect(rect, corner, corner, paint)
                 canvas.drawRoundRect(rect, corner, corner, borderPaint)
             }
+            if (editing && selectedId == control.id) {
+                val highlight = Paint(borderPaint).apply {
+                    color = Color.argb(240, 255, 255, 255)
+                    strokeWidth = 2.5f * resources.displayMetrics.density
+                }
+                if (control.shape == Shape.CIRCLE) {
+                    canvas.drawCircle(rect.centerX(), rect.centerY(), rect.width() / 2, highlight)
+                } else {
+                    canvas.drawRoundRect(rect, rect.height() / 2, rect.height() / 2, highlight)
+                }
+            }
             val oldSize = textPaint.textSize
             if (control.id == "select" || control.id == "start") textPaint.textSize = oldSize * .5f
             canvas.drawText(control.label, rect.centerX(),
@@ -191,12 +256,29 @@ class TouchControlsView @JvmOverloads constructor(
         }
         if (editing) {
             val p = Paint(fillPaint).apply { alpha = 205 }
-            canvas.drawRoundRect(doneRect, doneRect.height() / 2, doneRect.height() / 2, p)
-            canvas.drawRoundRect(doneRect, doneRect.height() / 2, doneRect.height() / 2, borderPaint)
             val previousSize = textPaint.textSize
-            textPaint.textSize = max(14f * resources.displayMetrics.density, previousSize * .55f)
-            canvas.drawText(context.getString(R.string.touch_layout_done), doneRect.centerX(),
-                doneRect.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+            val labelSize = max(14f * resources.displayMetrics.density, previousSize * .55f)
+            textPaint.textSize = labelSize
+            fun drawTool(rect: RectF, label: String, active: Boolean) {
+                val background = if (active) p else Paint(p).apply { alpha = 105 }
+                canvas.drawRoundRect(rect, rect.height() / 2, rect.height() / 2, background)
+                canvas.drawRoundRect(rect, rect.height() / 2, rect.height() / 2, borderPaint)
+                canvas.drawText(label, rect.centerX(),
+                    rect.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+            }
+            drawTool(doneRect, context.getString(R.string.touch_layout_done), true)
+            drawTool(decreaseRect, "−", selectedId != null)
+            drawTool(increaseRect, "+", selectedId != null)
+            selectedId?.let { id ->
+                val label = id.uppercase(java.util.Locale.ROOT) + "  " +
+                    (controlScale(id) * 100).toInt() + "%"
+                val y = doneRect.bottom + 18f * resources.displayMetrics.density
+                val textWidth = textPaint.measureText(label)
+                val backgroundRect = RectF(width / 2f - textWidth / 2 - 12f, y - labelSize,
+                    width / 2f + textWidth / 2 + 12f, y + 5f)
+                canvas.drawRoundRect(backgroundRect, 9f, 9f, p)
+                canvas.drawText(label, width / 2f, y, textPaint)
+            }
             textPaint.textSize = previousSize
         }
     }
@@ -218,6 +300,13 @@ class TouchControlsView @JvmOverloads constructor(
             isKeyHeld(GbaKey.LEFT) || isKeyHeld(GbaKey.RIGHT)
         canvas.drawPath(shape, if (pressed) pressedPaint else fillPaint)
         canvas.drawPath(shape, borderPaint)
+        if (editing && selectedId == "dpad") {
+            val highlight = Paint(borderPaint).apply {
+                color = Color.argb(240, 255, 255, 255)
+                strokeWidth = 2.5f * resources.displayMetrics.density
+            }
+            canvas.drawPath(shape, highlight)
+        }
 
         val centerRadius = half * .32f
         canvas.drawCircle(dpadCenterX, dpadCenterY, centerRadius, markerPaint)
@@ -255,6 +344,9 @@ class TouchControlsView @JvmOverloads constructor(
         clearHeldKeys()
         editingPointer = -1
         editingId = null
+        selectedId = null
+        pinchActive = false
+        editAction = null
         editing = true
         invalidate()
     }
@@ -263,6 +355,9 @@ class TouchControlsView @JvmOverloads constructor(
         editing = false
         editingPointer = -1
         editingId = null
+        selectedId = null
+        pinchActive = false
+        editAction = null
         invalidate()
     }
 
@@ -307,34 +402,69 @@ class TouchControlsView @JvmOverloads constructor(
                 editingPointer = event.getPointerId(0)
                 lastEditX = event.x
                 lastEditY = event.y
-                editingId = if (doneRect.contains(event.x, event.y)) "done" else pickControl(event.x, event.y)
+                pinchActive = false
+                editAction = when {
+                    doneRect.contains(event.x, event.y) -> "done"
+                    decreaseRect.contains(event.x, event.y) && selectedId != null -> "decrease"
+                    increaseRect.contains(event.x, event.y) && selectedId != null -> "increase"
+                    else -> null
+                }
+                editingId = if (editAction == null) pickControl(event.x, event.y) else null
+                if (editingId != null) selectedId = editingId
+            }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (event.pointerCount == 2 && editingId != null && editAction == null) {
+                    pinchInitialDistance = pinchDistance(event)
+                    if (pinchInitialDistance > 10f) {
+                        pinchInitialScale = controlScale(editingId!!)
+                        pinchActive = true
+                    }
+                }
             }
             MotionEvent.ACTION_MOVE -> {
-                val idx = event.findPointerIndex(editingPointer)
                 val id = editingId
-                if (idx < 0 || id == null || id == "done") return
-                val x = event.getX(idx)
-                val y = event.getY(idx)
-                val dx = x - lastEditX
-                val dy = y - lastEditY
-                shiftControl(id, dx, dy)
+                if (pinchActive && id != null && event.pointerCount >= 2) {
+                    val distance = pinchDistance(event)
+                    if (distance > 0f) {
+                        setControlScale(id, pinchInitialScale * distance / pinchInitialDistance)
+                    }
+                    return
+                }
+                if (event.pointerCount != 1 || id == null) return
+                val index = event.findPointerIndex(editingPointer)
+                if (index < 0) return
+                val x = event.getX(index)
+                val y = event.getY(index)
+                shiftControl(id, x - lastEditX, y - lastEditY)
                 lastEditX = x
                 lastEditY = y
             }
+            MotionEvent.ACTION_POINTER_UP -> {
+                if (pinchActive) {
+                    editingId?.let { saveControl(it) }
+                    editingId = null // Do not jump when only one finger remains.
+                    editingPointer = -1
+                    pinchActive = false
+                }
+            }
             MotionEvent.ACTION_UP -> {
-                val id = editingId
-                if (id == "done" && doneRect.contains(event.x, event.y)) {
-                    finishEditing()
-                } else if (id != null && id != "done") {
-                    saveControl(id)
+                when (editAction) {
+                    "done" -> if (doneRect.contains(event.x, event.y)) finishEditing()
+                    "decrease" -> if (decreaseRect.contains(event.x, event.y)) resizeSelected(-0.10f)
+                    "increase" -> if (increaseRect.contains(event.x, event.y)) resizeSelected(0.10f)
+                    else -> editingId?.let { saveControl(it) }
                 }
                 editingPointer = -1
                 editingId = null
+                editAction = null
+                pinchActive = false
             }
             MotionEvent.ACTION_CANCEL -> {
                 layoutControls(width, height)
                 editingPointer = -1
                 editingId = null
+                editAction = null
+                pinchActive = false
             }
         }
     }
