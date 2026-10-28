@@ -52,6 +52,7 @@ object Settings {
     // Graphics
     val graphicsApi = IntPref("pref_graphics_api", 0)
     val upscalingFilter = IntPref("pref_upscaling_filter", 0)
+    val glslShader = IntPref("pref_glsl_shader", 0)
     val frameLimit = IntPref("pref_frame_limit", 0)
     val screenOrientation = IntPref("pref_screen_orientation", 0)
     val fpsCounter = BoolPref("pref_fps_counter", false)

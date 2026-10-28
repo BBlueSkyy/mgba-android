@@ -8,6 +8,23 @@
   -->
 
 <resources>
+    <string-array name="glsl_shader_entries">
+        <item>None</item>
+        <item>HQ2x</item>
+        <item>HQ4x (2-pass HQ2x)</item>
+        <item>2xBR</item>
+        <item>4xBR</item>
+        <item>LCD3x</item>
+    </string-array>
+    <integer-array name="glsl_shader_values">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </integer-array>
+
     <string-array name="touch_layout_style_entries">
         <item>Default</item>
         <item>GBA Classic (side panels)</item>

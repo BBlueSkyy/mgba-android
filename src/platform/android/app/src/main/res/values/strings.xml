@@ -77,6 +77,8 @@
     <!-- Preferences Graphics -->
     <string name="pref_graphics_api">API</string>
     <string name="pref_upscaling_filter">Upscaling Filter</string>
+    <string name="pref_glsl_shader">GLSL Shader</string>
+    <string name="pref_glsl_shader_description">Pixel-art enhancement or LCD simulation (OpenGL ES)</string>
     <string name="pref_frame_limit">Frame Limit</string>
     <string name="pref_screen_orientation">Orientation</string>
     <string name="pref_show_fps">Show FPS</string>

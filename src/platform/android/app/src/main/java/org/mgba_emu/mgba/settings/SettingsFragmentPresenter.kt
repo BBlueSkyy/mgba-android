@@ -122,6 +122,15 @@ class SettingsFragmentPresenter(
             )
             add(
                 IntSetting(
+                    setting = Settings.glslShader,
+                    titleId = R.string.pref_glsl_shader,
+                    descriptionId = R.string.pref_glsl_shader_description,
+                    choicesId = R.array.glsl_shader_entries,
+                    valuesId = R.array.glsl_shader_values
+                )
+            )
+            add(
+                IntSetting(
                     setting = Settings.frameLimit,
                     titleId = R.string.pref_frame_limit,
                     choicesId = R.array.frame_limit_entries,

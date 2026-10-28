@@ -336,7 +336,7 @@ class EmulationActivity : AppCompatActivity() {
     private fun setupGlSurface() {
         glSurfaceView = binding.glSurfaceView
         glSurfaceView.setEGLContextClientVersion(2)
-        glRenderer = OpenGLRenderer(frameBuffer)
+        glRenderer = OpenGLRenderer(frameBuffer, applicationContext)
         glSurfaceView.setRenderer(glRenderer)
         glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
 
@@ -344,6 +344,15 @@ class EmulationActivity : AppCompatActivity() {
 
     private fun setupTouchControls() {
         binding.touchControlsView.inputState = inputState
+        // Changes are applied on the GL render thread on the next frame.
+        Settings.glslShader.flow.distinctUntilChanged().collect(this) { mode ->
+            glRenderer.requestedShaderId = mode
+            glSurfaceView.requestRender()
+        }
+        Settings.upscalingFilter.flow.distinctUntilChanged().collect(this) { filter ->
+            glRenderer.requestedUpscaleId = filter
+            glSurfaceView.requestRender()
+        }
         Settings.touchLayoutStyle.flow.distinctUntilChanged().collect(this) { style ->
             // Shared mode setting controls BOTH visible hit areas and GL viewport.
             // @Volatile flag is read by the GL thread when it next draws a frame.
