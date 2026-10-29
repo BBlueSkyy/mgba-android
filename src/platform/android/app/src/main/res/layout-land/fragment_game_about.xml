@@ -91,9 +91,10 @@
 
             <com.google.android.material.imageview.ShapeableImageView
                 android:id="@+id/game_icon"
-                android:layout_width="175dp"
-                android:layout_height="175dp"
-                android:scaleType="centerCrop"
+                android:layout_width="180dp"
+                    android:layout_height="180dp"
+                    android:background="?attr/colorSecondaryContainer"
+                    android:scaleType="centerCrop"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent"
                 app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Medium"

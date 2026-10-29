@@ -18,13 +18,11 @@ import coil3.load
 import coil3.request.crossfade
 import coil3.request.error
 import coil3.request.fallback
-import coil3.request.transformations
-import coil3.transform.RoundedCornersTransformation
 import org.mgba_emu.mgba.NavGraphDirections
 import org.mgba_emu.mgba.R
 import org.mgba_emu.mgba.databinding.ItemGameBinding
 import org.mgba_emu.mgba.model.GameModel
-import org.mgba_emu.mgba.utils.ViewUtils.marquee
+import org.mgba_emu.mgba.utils.IconMetadataHelper
 import org.mgba_emu.mgba.viewholders.AbstractViewHolder
 
 class GameAdapter(
@@ -53,14 +51,12 @@ class GameAdapter(
                 true
             }
 
-            binding.title.text = model.title ?: model.fileName
-            binding.title.marquee()
+            binding.title.text = IconMetadataHelper.getDisplayTitle(model)
             binding.platform.text = model.platform?.name ?: ""
-            binding.icon.load(model.iconUrl ?: "") {
+            binding.icon.load(IconMetadataHelper.getCoverUrl(model)) {
                 crossfade(true)
                 fallback(R.drawable.mgba)
                 error(R.drawable.mgba)
-                transformations(RoundedCornersTransformation(16f))
             }
         }
     }

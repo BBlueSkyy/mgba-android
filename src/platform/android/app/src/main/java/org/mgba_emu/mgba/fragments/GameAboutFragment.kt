@@ -89,8 +89,8 @@ class GameAboutFragment : Fragment(R.layout.fragment_game_about) {
             view.findNavController().popBackStack()
         }
 
-        binding.title.text = args.game.title ?: args.game.fileName
-        (binding.gameIcon as AppCompatImageView).load(args.game.iconUrl) {
+        binding.title.text = IconMetadataHelper.getDisplayTitle(args.game)
+        (binding.gameIcon as AppCompatImageView).load(IconMetadataHelper.getCoverUrl(args.game)) {
             crossfade(true)
             allowHardware(false)
             fallback(R.drawable.mgba)
@@ -108,9 +108,9 @@ class GameAboutFragment : Fragment(R.layout.fragment_game_about) {
                 withContext(Dispatchers.IO) {
                     val shortcut = ShortcutInfo.Builder(
                         requireContext(),
-                        args.game.title ?: args.game.fileName
+                        IconMetadataHelper.getDisplayTitle(args.game)
                     )
-                        .setShortLabel(args.game.title ?: args.game.fileName)
+                        .setShortLabel(IconMetadataHelper.getDisplayTitle(args.game))
                         .setIcon(
                             IconMetadataHelper.getShortcutIcon(args.game)
                                 .toIcon(requireContext())

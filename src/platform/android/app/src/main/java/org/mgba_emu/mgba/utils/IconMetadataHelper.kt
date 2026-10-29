@@ -38,7 +38,7 @@ object IconMetadataHelper {
         if (gameTitle.isNullOrBlank()) return null
 
         val systemFolder = when (platform) {
-            Platform.GB -> "Nintendo - Game Boy"
+            Platform.GB, Platform.SGB -> "Nintendo - Game Boy"
             Platform.GBA -> "Nintendo - Game Boy Advance"
             Platform.GBC -> "Nintendo - Game Boy Color"
             else -> null
@@ -52,9 +52,66 @@ object IconMetadataHelper {
         return "https://thumbnails.libretro.com/$encodedSystemFolder/Named_Boxarts/$encodedTitle.png"
     }
 
+    /**
+     * Hide No-Intro region/language qualifiers and translated-ROM release tags
+     * in library labels, while keeping the original model untouched.
+     */
+    fun getDisplayTitle(game: GameModel): String {
+        val original = game.title?.takeIf { it.isNotBlank() }
+            ?: game.fileName.substringBeforeLast('.', game.fileName)
+        val shortName = original
+            .substringBefore('(')
+            .substringBefore('[')
+            .substringBefore('{')
+            .replace(Regex("""(?i)(?:https?://)?www[.][^ ]+"""), "")
+            .trim()
+            .trimEnd(' ', '-', '_', '.')
+        return shortName.ifBlank { original }
+    }
+
+    /**
+     * The user-selected art takes precedence. Translated ROMs may not match
+     * No-Intro, so map known aliases to actual Libretro boxart filenames.
+     * For other unrecognized ROMs, try the usual USA label without tags.
+     * Coil handles network requests and image caching.
+     */
+    fun getCoverUrl(game: GameModel): String? {
+        val stored = game.iconUrl?.takeIf { it.isNotBlank() }
+        if (stored != null &&
+            (stored.startsWith("content:", ignoreCase = true) ||
+             stored.startsWith("file:", ignoreCase = true) ||
+             stored.startsWith("android.resource:", ignoreCase = true))) {
+            return stored
+        }
+
+        val title = getDisplayTitle(game)
+        val normalized = title.lowercase(java.util.Locale.ROOT)
+            .replace(Regex(" +"), " ")
+            .trim()
+        val officialTitle = when (normalized) {
+            "the minish cap",
+            "zelda - the minish cap",
+            "the legend of zelda - the minish cap",
+            "the legend of zelda: the minish cap",
+            "legend of zelda, the - the minish cap" ->
+                "Legend of Zelda, The - The Minish Cap (USA)"
+            "metroid - zero mission",
+            "metroid zero mission",
+            "metroid: zero mission" ->
+                "Metroid - Zero Mission (USA)"
+            else -> null
+        }
+
+        val platform = game.platform ?: Platform.UNKNOWN
+        if (officialTitle != null) return getIconUrl(officialTitle, platform)
+        if (stored != null) return stored
+
+        return getIconUrl("$title (USA)", platform)
+    }
+
     suspend fun getGameIcon(game: GameModel): Bitmap {
         val request = ImageRequest.Builder(mGBAApplication.context)
-            .data(game.iconUrl)
+            .data(getCoverUrl(game))
             .allowHardware(false)
             .error(R.mipmap.ic_launcher_monochrome)
             .build()
