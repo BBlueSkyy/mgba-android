@@ -525,7 +525,8 @@ class EmulationActivity : AppCompatActivity() {
             // Shared mode setting controls BOTH visible hit areas and GL viewport.
             // @Volatile flag is read by the GL thread when it next draws a frame.
             glRenderer.classicMode = (style == 1)
-            glRenderer.fullscreenMode = (style == 2)
+            glRenderer.fullscreenMode = (style == 2 || style == 3)
+            glRenderer.fullscreenCropMode = (style == 3)
             binding.touchControlsView.setLayoutStyle(style)
             glSurfaceView.requestRender()
         }

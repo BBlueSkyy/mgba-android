@@ -28,12 +28,14 @@
     <string-array name="touch_layout_style_entries">
         <item>Default</item>
         <item>GBA Classic (side panels)</item>
-        <item>Fullscreen (crop to fill)</item>
+        <item>Fullscreen (Fit)</item>
+        <item>Fullscreen (Zoom/Crop)</item>
     </string-array>
     <integer-array name="touch_layout_style_values">
         <item>0</item>
         <item>1</item>
         <item>2</item>
+        <item>3</item>
     </integer-array>
 
     <string-array name="screen_orientation_entries">

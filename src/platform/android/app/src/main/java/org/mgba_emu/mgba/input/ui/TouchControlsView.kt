@@ -60,7 +60,7 @@ class TouchControlsView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
-    private var layoutStyle = 0 // 0=Default, 1=GBA Classic, 2=Fullscreen
+    private var layoutStyle = 0 // 0=Default, 1=GBA Classic, 2=Fullscreen Fit, 3=Fullscreen Crop
     private var opacityPercent = 38
     private var sizePercent = 100
     private val sizeFactor get() = sizePercent / 100f
@@ -121,7 +121,7 @@ class TouchControlsView @JvmOverloads constructor(
     }
 
     fun setLayoutStyle(style: Int) {
-        val selected = style.coerceIn(0, 2)
+        val selected = style.coerceIn(0, 3)
         if (layoutStyle == selected) return
         clearHeldKeys()
         finishEditing()
@@ -176,6 +176,8 @@ class TouchControlsView @JvmOverloads constructor(
             isClassicLayout() -> "classic_landscape"
             layoutStyle == 2 && width >= height -> "fullscreen_landscape"
             layoutStyle == 2 -> "fullscreen_portrait"
+            layoutStyle == 3 && width >= height -> "fullscreen_crop_landscape"
+            layoutStyle == 3 -> "fullscreen_crop_portrait"
             width >= height -> "landscape"
             else -> "portrait"
         }

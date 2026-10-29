@@ -5,6 +5,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class FullscreenViewportGeometryTest {
+    @Test fun fitShowsEntireGbaFrameWithoutStretching() {
+        val v = FullscreenViewportGeometry.fit(240, 160, 1866, 800)
+        assertEquals(1200, v.width)
+        assertEquals(800, v.height)
+        assertEquals(333, v.x)
+        assertEquals(0, v.y)
+        assertEquals(1.5, v.width.toDouble() / v.height.toDouble(), 0.0001)
+    }
+
+    @Test fun fitPreservesEntireGameBoyScreenInPortrait() {
+        val v = FullscreenViewportGeometry.fit(160, 144, 1080, 1920)
+        assertEquals(1080, v.width)
+        assertEquals(972, v.height)
+        assertEquals(0, v.x)
+        assertEquals(474, v.y)
+    }
+
+    @Test fun fitKeepsWholeImageWhenAspectMatches() {
+        assertEquals(FullscreenViewportGeometry.Viewport(0, 0, 960, 640),
+            FullscreenViewportGeometry.fit(240, 160, 960, 640))
+    }
+
     @Test fun landscapeCropsTopAndBottomWithoutStretching() {
         val v = FullscreenViewportGeometry.cover(240, 160, 1866, 800)
         assertEquals(1866, v.width)

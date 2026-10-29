@@ -37,6 +37,7 @@ class OpenGLRenderer(
 
     @Volatile var classicMode = false
     @Volatile var fullscreenMode = false
+    @Volatile var fullscreenCropMode = false
     @Volatile var requestedShaderId: Int = Settings.glslShader.value
     @Volatile var requestedUpscaleId: Int = Settings.upscalingFilter.value
 
@@ -303,10 +304,14 @@ class OpenGLRenderer(
     private fun maintainAspectViewport(coreWidth: Int, coreHeight: Int) {
         if (coreWidth <= 0 || coreHeight <= 0 || surfaceWidth <= 0 || surfaceHeight <= 0) return
         if (fullscreenMode) {
-            // Center-crop to fill the screen without distorting GBA/GB pixels.
-            // OpenGL clips the oversize viewport at the surface boundaries.
-            val vp = FullscreenViewportGeometry.cover(
-                coreWidth, coreHeight, surfaceWidth, surfaceHeight)
+            // By default show every GBA pixel with its native aspect ratio.
+            // Cropping is an explicit separate option, never implicit zoom.
+            val vp = if (fullscreenCropMode)
+                FullscreenViewportGeometry.cover(
+                    coreWidth, coreHeight, surfaceWidth, surfaceHeight)
+            else
+                FullscreenViewportGeometry.fit(
+                    coreWidth, coreHeight, surfaceWidth, surfaceHeight)
             GLES20.glViewport(vp.x, vp.y, vp.width, vp.height)
             return
         }
