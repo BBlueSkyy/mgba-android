@@ -36,6 +36,7 @@ class OpenGLRenderer(
     )
 
     @Volatile var classicMode = false
+    @Volatile var fullscreenMode = false
     @Volatile var requestedShaderId: Int = Settings.glslShader.value
     @Volatile var requestedUpscaleId: Int = Settings.upscalingFilter.value
 
@@ -301,6 +302,14 @@ class OpenGLRenderer(
 
     private fun maintainAspectViewport(coreWidth: Int, coreHeight: Int) {
         if (coreWidth <= 0 || coreHeight <= 0 || surfaceWidth <= 0 || surfaceHeight <= 0) return
+        if (fullscreenMode) {
+            // Center-crop to fill the screen without distorting GBA/GB pixels.
+            // OpenGL clips the oversize viewport at the surface boundaries.
+            val vp = FullscreenViewportGeometry.cover(
+                coreWidth, coreHeight, surfaceWidth, surfaceHeight)
+            GLES20.glViewport(vp.x, vp.y, vp.width, vp.height)
+            return
+        }
         val reserved = if (classicMode && surfaceWidth > surfaceHeight)
             ClassicLayoutGeometry.panelWidth(surfaceWidth, surfaceHeight) else 0
         val availableWidth = (surfaceWidth - reserved * 2).coerceAtLeast(1)

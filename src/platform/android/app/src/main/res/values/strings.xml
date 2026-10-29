@@ -70,7 +70,7 @@
     <string name="preferences_controls">Touch Controls</string>
     <string name="preferences_controls_description">Opacity, size, and control placement</string>
     <string name="pref_touch_layout_style">Control layout</string>
-    <string name="pref_touch_layout_style_description">Default layout or GBA Classic side panels (landscape)</string>
+    <string name="pref_touch_layout_style_description">Default, GBA Classic side panels, or Fullscreen with touch controls</string>
     <string name="pref_touch_opacity">Control opacity</string>
     <string name="pref_touch_opacity_description">Adjust the transparency of on-screen buttons</string>
     <string name="pref_touch_size">Control size</string>

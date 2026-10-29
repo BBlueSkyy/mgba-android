@@ -60,7 +60,7 @@ class TouchControlsView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
-    private var layoutStyle = 0 // 0=Strato overlay, 1=classic GBA side panels
+    private var layoutStyle = 0 // 0=Default, 1=GBA Classic, 2=Fullscreen
     private var opacityPercent = 38
     private var sizePercent = 100
     private val sizeFactor get() = sizePercent / 100f
@@ -121,7 +121,7 @@ class TouchControlsView @JvmOverloads constructor(
     }
 
     fun setLayoutStyle(style: Int) {
-        val selected = if (style == 1) 1 else 0
+        val selected = style.coerceIn(0, 2)
         if (layoutStyle == selected) return
         clearHeldKeys()
         finishEditing()
@@ -172,8 +172,13 @@ class TouchControlsView @JvmOverloads constructor(
     }
 
     private fun orientationKey(): String =
-        if (isClassicLayout()) "classic_landscape"
-        else if (width >= height) "landscape" else "portrait"
+        when {
+            isClassicLayout() -> "classic_landscape"
+            layoutStyle == 2 && width >= height -> "fullscreen_landscape"
+            layoutStyle == 2 -> "fullscreen_portrait"
+            width >= height -> "landscape"
+            else -> "portrait"
+        }
 
     private fun savedCenter(id: String, defaultX: Float, defaultY: Float, halfW: Float, halfH: Float): Pair<Float, Float> {
         val key = orientationKey() + "_" + id
@@ -321,11 +326,6 @@ class TouchControlsView @JvmOverloads constructor(
         color = ClassicLayoutGeometry.panelColorArgb
         style = Paint.Style.FILL
     }
-    private val classicSeamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(110, 219, 201, 245)
-        strokeWidth = resources.displayMetrics.density
-        style = Paint.Style.STROKE
-    }
     private val classicPlasticShader = LinearGradient(0f, 0f, 0f, 1f,
         intArrayOf(Color.rgb(236, 236, 239), Color.rgb(225, 225, 230), Color.rgb(211, 212, 218)),
         floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
@@ -422,8 +422,6 @@ class TouchControlsView @JvmOverloads constructor(
         val panel = ClassicLayoutGeometry.panelWidth(width, height).toFloat()
         canvas.drawRect(0f, 0f, panel, height.toFloat(), classicPanelPaint)
         canvas.drawRect(width - panel, 0f, width.toFloat(), height.toFloat(), classicPanelPaint)
-        canvas.drawLine(panel, 0f, panel, height.toFloat(), classicSeamPaint)
-        canvas.drawLine(width - panel, 0f, width - panel, height.toFloat(), classicSeamPaint)
     }
 
     private fun drawClassicDpad(canvas: Canvas) {
