@@ -74,6 +74,7 @@ public:
 
     bool saveState(uint8_t* outBuffer, size_t bufferSize, size_t* outWritten);
     bool loadState(const uint8_t* data, size_t size);
+    std::vector<uint8_t> exportState();
 
     bool loadSaveData(const uint8_t* data, size_t size);
     std::vector<uint8_t> exportSaveData();

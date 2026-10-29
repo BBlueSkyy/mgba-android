@@ -136,6 +136,35 @@ Java_org_mgba_1emu_mgba_core_Core_nativeSetKeys(JNIEnv* env, jobject /*thiz*/, j
     if (g_core) g_core->setKeys(static_cast<uint16_t>(keyMask));
 }
 
+// Full emulator snapshots (not cartridge .sav files).
+// g_coreMutex is also held while running frames, so snapshot and restore
+// cannot race with a frame on the emulation thread.
+JNIEXPORT jbyteArray JNICALL
+Java_org_mgba_1emu_mgba_core_Core_nativeExportState(JNIEnv* env, jobject /*thiz*/) {
+    std::lock_guard<std::mutex> lock(g_coreMutex);
+    if (!g_core) return nullptr;
+    auto bytes = g_core->exportState();
+    if (bytes.empty()) return nullptr;
+    jbyteArray result = env->NewByteArray(static_cast<jsize>(bytes.size()));
+    if (result) {
+        env->SetByteArrayRegion(result, 0, static_cast<jsize>(bytes.size()),
+                                reinterpret_cast<const jbyte*>(bytes.data()));
+    }
+    return result;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_org_mgba_1emu_mgba_core_Core_nativeImportState(JNIEnv* env, jobject /*thiz*/, jbyteArray state) {
+    std::lock_guard<std::mutex> lock(g_coreMutex);
+    if (!g_core || !state) return JNI_FALSE;
+    const jsize length = env->GetArrayLength(state);
+    if (length <= 0 || length > 32 * 1024 * 1024) return JNI_FALSE;
+    std::vector<uint8_t> bytes(static_cast<size_t>(length));
+    env->GetByteArrayRegion(state, 0, length, reinterpret_cast<jbyte*>(bytes.data()));
+    if (env->ExceptionCheck()) return JNI_FALSE;
+    return g_core->loadState(bytes.data(), bytes.size()) ? JNI_TRUE : JNI_FALSE;
+}
+
 // restores previously persisted cart save bytes into the core, must be called after nativeLoadRom()
 JNIEXPORT jboolean JNICALL
 Java_org_mgba_1emu_mgba_core_Core_nativeLoadSaveData(JNIEnv* env, jobject /*thiz*/, jbyteArray saveData) {

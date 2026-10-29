@@ -269,14 +269,46 @@ bool Core::saveState(uint8_t* outBuffer, size_t bufferSize, size_t* outWritten) 
 	return ok;
 }
 
+// Dynamically sized VFile: avoids allocating a guessed fixed-size buffer and
+// does not truncate compressed savestates or embedded screenshots.
+std::vector<uint8_t> Core::exportState() {
+    if (!m_core) return {};
+    VFile* vf = VFileMemChunk(nullptr, 0);
+    if (!vf) return {};
+
+    const bool ok = mCoreSaveStateNamed(m_core, vf, SAVESTATE_SAVEDATA | SAVESTATE_SCREENSHOT);
+    const ssize_t length = ok ? vf->size(vf) : -1;
+    constexpr ssize_t kMaxSaveStateSize = 32 * 1024 * 1024;
+    std::vector<uint8_t> bytes;
+    if (length > 0 && length <= kMaxSaveStateSize &&
+        vf->seek(vf, 0, SEEK_SET) == 0) {
+        bytes.resize(static_cast<size_t>(length));
+        if (vf->read(vf, bytes.data(), bytes.size()) != length) bytes.clear();
+    } else {
+        LOGE("Core::exportState invalid serialized size=%zd", length);
+    }
+    vf->close(vf);
+    return bytes;
+}
+
 bool Core::loadState(const uint8_t* data, size_t size) {
-	if (!m_core)
+	if (!m_core || !data || size == 0 || size > 32 * 1024 * 1024)
 		return false;
 	VFile* vf = VFileFromConstMemory(data, size);
 	if (!vf)
 		return false;
 	bool ok = mCoreLoadStateNamed(m_core, vf, SAVESTATE_SAVEDATA | SAVESTATE_SCREENSHOT);
 	vf->close(vf);
+    if (ok && m_resamplerInitialized) {
+        // Restored audio buffers/timing belong to a different point in time.
+        m_pendingAudioRate.store(0, std::memory_order_release);
+        const int rate = static_cast<int>(m_core->audioSampleRate(m_core));
+        if (rate > 0) {
+            m_coreSampleRate = rate;
+            configureCoreAudioBuffer(rate);
+        }
+        resetAudioPipeline();
+    }
 	return ok;
 }
 
