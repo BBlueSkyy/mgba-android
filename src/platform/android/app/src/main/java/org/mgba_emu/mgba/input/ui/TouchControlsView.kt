@@ -10,9 +10,12 @@ package org.mgba_emu.mgba.input.ui
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Shader
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
@@ -323,22 +326,96 @@ class TouchControlsView @JvmOverloads constructor(
         strokeWidth = resources.displayMetrics.density
         style = Paint.Style.STROKE
     }
+    private val classicPlasticShader = LinearGradient(0f, 0f, 0f, 1f,
+        intArrayOf(Color.rgb(236, 236, 239), Color.rgb(225, 225, 230), Color.rgb(211, 212, 218)),
+        floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
+    private val classicShaderMatrix = Matrix()
+    private val classicKeyPath = Path()
+    private val classicKeyBounds = RectF()
     private val classicButtonFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(239, 239, 243)
+        shader = classicPlasticShader
         style = Paint.Style.FILL
     }
     private val classicButtonPressed = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(202, 202, 212)
+        color = Color.rgb(202, 203, 211)
         style = Paint.Style.FILL
     }
     private val classicWell = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(37, 30, 48)
+        color = Color.rgb(29, 25, 37)
         style = Paint.Style.FILL
     }
     private val classicHighlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(210, 36, 34, 44)
+        color = Color.rgb(66, 63, 74)
         style = Paint.Style.STROKE
-        strokeWidth = 1.5f * resources.displayMetrics.density
+        strokeWidth = resources.displayMetrics.density
+    }
+    private val classicBevelLight = Paint(classicHighlight).apply { color = Color.rgb(250, 250, 252) }
+    private val classicBevelShade = Paint(classicHighlight).apply { color = Color.rgb(82, 81, 96) }
+    private val classicCenter = Paint(classicButtonPressed)
+    private val classicDetail = Paint(classicHighlight).apply {
+        color = Color.rgb(111, 112, 125)
+        strokeJoin = Paint.Join.ROUND
+    }
+    private var classicPaintOpacity = -1
+
+    private fun updateClassicOpacity() {
+        if (classicPaintOpacity == opacityPercent) return
+        classicPaintOpacity = opacityPercent
+        // Keep the physical keys solid at the default setting; allow fading them
+        // with the existing opacity slider without fading the console shell.
+        val opacity = (opacityPercent / 38f).coerceAtMost(1f)
+        classicButtonFill.alpha = (255 * opacity).toInt()
+        classicButtonPressed.alpha = classicButtonFill.alpha
+        classicWell.alpha = (65 * opacity).toInt()
+        classicHighlight.alpha = (230 * opacity).toInt()
+        classicBevelLight.alpha = (130 * opacity).toInt()
+        classicBevelShade.alpha = (45 * opacity).toInt()
+        classicCenter.alpha = (155 * opacity).toInt()
+        classicDetail.alpha = (115 * opacity).toInt()
+    }
+
+    private fun drawClassicSurface(canvas: Canvas, path: Path, bounds: RectF, held: Boolean) {
+        val density = resources.displayMetrics.density
+        val edge = min(1.2f * density, bounds.height() * .035f)
+        val depth = if (held) edge * .25f else edge
+        canvas.save()
+        canvas.translate(0f, depth)
+        canvas.drawPath(path, classicWell)
+        canvas.restore()
+
+        // Reuse one matte gradient, aligned to each key after dragging/resizing.
+        classicShaderMatrix.setScale(1f, max(1f, bounds.height()))
+        classicShaderMatrix.postTranslate(0f, bounds.top)
+        classicPlasticShader.setLocalMatrix(classicShaderMatrix)
+        canvas.drawPath(path, if (held) classicButtonPressed else classicButtonFill)
+
+        classicBevelLight.strokeWidth = edge
+        classicBevelShade.strokeWidth = edge
+        canvas.save()
+        canvas.clipPath(path)
+        canvas.translate(0f, edge)
+        canvas.drawPath(path, classicBevelLight)
+        canvas.translate(0f, -2f * edge)
+        canvas.drawPath(path, classicBevelShade)
+        canvas.restore()
+        classicHighlight.strokeWidth = max(1f, min(density, bounds.height() * .025f))
+        canvas.drawPath(path, classicHighlight)
+    }
+
+    private fun drawClassicButton(canvas: Canvas, control: Control) {
+        // Compact the visible plastic only; retain the original touch/edit bounds.
+        val rect = classicKeyBounds.apply { set(control.rect) }
+        when (control.id) {
+            "start", "select" -> rect.inset(rect.width() * .10f, rect.height() * .10f)
+            "l", "r" -> rect.inset(0f, rect.height() * .125f)
+        }
+        classicKeyPath.reset()
+        if (control.shape == Shape.CIRCLE) {
+            classicKeyPath.addCircle(rect.centerX(), rect.centerY(), rect.width() / 2f, Path.Direction.CW)
+        } else {
+            classicKeyPath.addRoundRect(rect, rect.height() / 2f, rect.height() / 2f, Path.Direction.CW)
+        }
+        drawClassicSurface(canvas, classicKeyPath, rect, isKeyHeld(control.key))
     }
 
     private fun drawClassicBackground(canvas: Canvas) {
@@ -351,40 +428,31 @@ class TouchControlsView @JvmOverloads constructor(
 
     private fun drawClassicDpad(canvas: Canvas) {
         val distance = dpadArmLength
-        val radius = dpadArmWidth / 2f
-        val vertical = RectF(dpadCenterX - radius, dpadCenterY - distance - radius,
-            dpadCenterX + radius, dpadCenterY + distance + radius)
-        val horizontal = RectF(dpadCenterX - distance - radius, dpadCenterY - radius,
-            dpadCenterX + distance + radius, dpadCenterY + radius)
+        val reach = distance + dpadArmWidth / 2f
+        // Narrow the plastic arms, keeping the existing reach and touch targets.
+        val half = min(dpadArmWidth / 2f, reach * .32f)
+        val vertical = RectF(dpadCenterX - half, dpadCenterY - reach,
+            dpadCenterX + half, dpadCenterY + reach)
+        val horizontal = RectF(dpadCenterX - reach, dpadCenterY - half,
+            dpadCenterX + reach, dpadCenterY + half)
+        val corner = half * .12f
         val path = Path().apply {
-            addRoundRect(vertical, radius * .22f, radius * .22f, Path.Direction.CW)
+            addRoundRect(vertical, corner, corner, Path.Direction.CW)
             val horizontalPath = Path().apply {
-                addRoundRect(horizontal, radius * .22f, radius * .22f, Path.Direction.CW)
-            }
-            op(horizontalPath, Path.Op.UNION)
-        }
-        canvas.drawPath(path, classicWell)
-        val inner = Path().apply {
-            val edgeInset = max(1f, 2.2f * resources.displayMetrics.density)
-            addRoundRect(RectF(vertical).apply { inset(edgeInset, edgeInset) },
-                radius * .18f, radius * .18f, Path.Direction.CW)
-            val horizontalPath = Path().apply {
-                addRoundRect(RectF(horizontal).apply { inset(edgeInset, edgeInset) },
-                    radius * .18f, radius * .18f, Path.Direction.CW)
+                addRoundRect(horizontal, corner, corner, Path.Direction.CW)
             }
             op(horizontalPath, Path.Op.UNION)
         }
         val held = isKeyHeld(GbaKey.UP) || isKeyHeld(GbaKey.DOWN) ||
             isKeyHeld(GbaKey.LEFT) || isKeyHeld(GbaKey.RIGHT)
-        canvas.drawPath(inner, if (held) classicButtonPressed else classicButtonFill)
-        canvas.drawPath(path, classicHighlight)
-        val centerDot = Paint(classicWell).apply { alpha = 125 }
-        canvas.drawCircle(dpadCenterX, dpadCenterY, radius * .38f, centerDot)
+        drawClassicSurface(canvas, path, RectF(dpadCenterX - reach, dpadCenterY - reach,
+            dpadCenterX + reach, dpadCenterY + reach), held)
+        val centerRadius = half * .20f
+        canvas.drawCircle(dpadCenterX, dpadCenterY, centerRadius, classicCenter)
+        classicDetail.strokeWidth = max(1f, .65f * resources.displayMetrics.density)
+        canvas.drawCircle(dpadCenterX, dpadCenterY, centerRadius, classicDetail)
 
-        val arrowPaint = Paint(markerPaint).apply {
-            color = Color.argb(205, 57, 55, 65)
-        }
-        val m = radius * .24f
+        val m = half * .19f
         fun arrow(x: Float, y: Float, direction: String) {
             val p = Path()
             when (direction) {
@@ -394,7 +462,7 @@ class TouchControlsView @JvmOverloads constructor(
                 else -> { p.moveTo(x + m, y); p.lineTo(x - m, y - m); p.lineTo(x - m, y + m) }
             }
             p.close()
-            canvas.drawPath(p, arrowPaint)
+            canvas.drawPath(p, classicDetail)
         }
         arrow(dpadCenterX, dpadCenterY - distance, "up")
         arrow(dpadCenterX, dpadCenterY + distance, "down")
@@ -410,36 +478,27 @@ class TouchControlsView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        if (isClassicLayout()) {
+        val classic = isClassicLayout()
+        if (classic) {
             drawClassicBackground(canvas)
+            updateClassicOpacity()
             drawClassicDpad(canvas)
         } else {
             drawDpad(canvas)
         }
         controls.forEach { control ->
-            val classic = isClassicLayout()
-            val paint = if (classic) {
-                if (isKeyHeld(control.key)) classicButtonPressed else classicButtonFill
-            } else {
-                if (isKeyHeld(control.key)) pressedPaint else fillPaint
-            }
+            val paint = if (isKeyHeld(control.key)) pressedPaint else fillPaint
             val rect = control.rect
-            if (control.shape == Shape.CIRCLE) {
+            if (classic) {
+                drawClassicButton(canvas, control)
+            } else if (control.shape == Shape.CIRCLE) {
                 val r = rect.width() / 2
-                if (classic) canvas.drawCircle(rect.centerX(), rect.centerY(),
-                    r + 3f * resources.displayMetrics.density, classicWell)
                 canvas.drawCircle(rect.centerX(), rect.centerY(), r, paint)
-                canvas.drawCircle(rect.centerX(), rect.centerY(), r,
-                    if (classic) classicHighlight else borderPaint)
+                canvas.drawCircle(rect.centerX(), rect.centerY(), r, borderPaint)
             } else {
                 val corner = rect.height() / 2
-                if (classic) {
-                    val outer = RectF(rect).apply { inset(-2f * resources.displayMetrics.density, -2f * resources.displayMetrics.density) }
-                    canvas.drawRoundRect(outer, outer.height() / 2, outer.height() / 2, classicWell)
-                }
                 canvas.drawRoundRect(rect, corner, corner, paint)
-                canvas.drawRoundRect(rect, corner, corner,
-                    if (classic) classicHighlight else borderPaint)
+                canvas.drawRoundRect(rect, corner, corner, borderPaint)
             }
             if (editing && selectedId == control.id) {
                 val highlight = Paint(borderPaint).apply {
@@ -454,19 +513,22 @@ class TouchControlsView @JvmOverloads constructor(
             }
             val oldSize = textPaint.textSize
             val oldColor = textPaint.color
-            if (classic) textPaint.color = Color.rgb(50, 48, 60)
-            textPaint.textSize = rect.height() * when {
+            val labelBounds = if (classic) classicKeyBounds else rect
+            if (classic) textPaint.color = Color.argb(classicButtonFill.alpha, 104, 104, 115)
+            textPaint.textSize = labelBounds.height() * when {
+                classic && control.shape == Shape.CIRCLE -> .33f
+                classic && control.label.length == 1 -> .40f
                 control.shape == Shape.CIRCLE -> .42f
                 control.label.length == 1 -> .50f
                 else -> .38f
             }
             // Labels follow individual resizing and fit narrow portrait capsules.
             val labelWidth = textPaint.measureText(control.label)
-            if (labelWidth > rect.width() * .8f) {
-                textPaint.textSize *= rect.width() * .8f / labelWidth
+            if (labelWidth > labelBounds.width() * .8f) {
+                textPaint.textSize *= labelBounds.width() * .8f / labelWidth
             }
-            canvas.drawText(control.label, rect.centerX(),
-                rect.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
+            canvas.drawText(control.label, labelBounds.centerX(),
+                labelBounds.centerY() - (textPaint.ascent() + textPaint.descent()) / 2f, textPaint)
             textPaint.textSize = oldSize
             textPaint.color = oldColor
         }
