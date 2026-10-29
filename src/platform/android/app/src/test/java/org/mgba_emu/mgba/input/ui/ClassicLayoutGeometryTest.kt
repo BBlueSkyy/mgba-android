@@ -14,6 +14,22 @@ class ClassicLayoutGeometryTest {
         }
     }
 
+    @Test fun classicBackgroundCoversUnusedLandscapeSpace() {
+        assertEquals(0xFF4B228C.toInt(),
+            ClassicLayoutGeometry.backgroundColorArgb(true, 1866, 800))
+        assertEquals(ClassicLayoutGeometry.panelColorArgb,
+            ClassicLayoutGeometry.backgroundColorArgb(true, 1920, 1080))
+    }
+
+    @Test fun defaultAndPortraitKeepBlackBackground() {
+        assertEquals(0xFF000000.toInt(),
+            ClassicLayoutGeometry.backgroundColorArgb(false, 1866, 800))
+        assertEquals(0xFF000000.toInt(),
+            ClassicLayoutGeometry.backgroundColorArgb(true, 800, 1866))
+        assertEquals(0xFF000000.toInt(),
+            ClassicLayoutGeometry.backgroundColorArgb(true, 800, 800))
+    }
+
     @Test fun portraitFallsBackToStratoLayout() {
         assertEquals(0, ClassicLayoutGeometry.panelWidth(1080, 1920))
         assertEquals(0, ClassicLayoutGeometry.panelWidth(800, 800))

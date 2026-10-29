@@ -318,7 +318,7 @@ class TouchControlsView @JvmOverloads constructor(
     // GBA Classic: opaque violet side panels with off-white physical-looking
     // buttons and charcoal legends. The separate Strato style is unchanged.
     private val classicPanelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.rgb(75, 34, 140)
+        color = ClassicLayoutGeometry.panelColorArgb
         style = Paint.Style.FILL
     }
     private val classicSeamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {

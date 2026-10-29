@@ -5,6 +5,7 @@
 package org.mgba_emu.mgba.renderer.gl
 
 import android.content.Context
+import android.graphics.Color
 import android.opengl.GLES20
 import android.opengl.GLSurfaceView
 import android.util.Log
@@ -101,6 +102,16 @@ class OpenGLRenderer(
     override fun onDrawFrame(gl: GL10?) {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
         GLES20.glViewport(0, 0, surfaceWidth, surfaceHeight)
+        // Fill unused space between the fitted game image and the control
+        // panels with the exact Classic shell color. Default remains black.
+        val background = ClassicLayoutGeometry.backgroundColorArgb(
+            classicMode, surfaceWidth, surfaceHeight)
+        GLES20.glClearColor(
+            Color.red(background) / 255f,
+            Color.green(background) / 255f,
+            Color.blue(background) / 255f,
+            1f
+        )
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT)
 
         val frame = frameBuffer.acquireLatest() ?: return
