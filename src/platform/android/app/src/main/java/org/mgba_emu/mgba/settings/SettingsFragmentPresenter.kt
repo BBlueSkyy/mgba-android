@@ -37,6 +37,7 @@ class SettingsFragmentPresenter(
             MenuTag.SECTION_SYSTEM -> addSystemSettings(sl)
             MenuTag.SECTION_RENDERER -> addGraphicsSettings(sl)
             MenuTag.SECTION_AUDIO -> addAudioSettings(sl)
+            MenuTag.SECTION_CONTROLS -> addTouchSettings(sl)
             MenuTag.SECTION_THEME -> addThemeSettings(sl)
         }
         settingsList = sl
@@ -71,6 +72,14 @@ class SettingsFragmentPresenter(
                     descriptionId = R.string.preferences_audio_description,
                     iconId = R.drawable.ic_audio,
                     menuKey = MenuTag.SECTION_AUDIO
+                )
+            )
+            add(
+                SubmenuSetting(
+                    titleId = R.string.preferences_controls,
+                    descriptionId = R.string.preferences_controls_description,
+                    iconId = R.drawable.ic_gamepad,
+                    menuKey = MenuTag.SECTION_CONTROLS
                 )
             )
         }
@@ -113,6 +122,15 @@ class SettingsFragmentPresenter(
             )
             add(
                 IntSetting(
+                    setting = Settings.glslShader,
+                    titleId = R.string.pref_glsl_shader,
+                    descriptionId = R.string.pref_glsl_shader_description,
+                    choicesId = R.array.glsl_shader_entries,
+                    valuesId = R.array.glsl_shader_values
+                )
+            )
+            add(
+                IntSetting(
                     setting = Settings.frameLimit,
                     titleId = R.string.pref_frame_limit,
                     choicesId = R.array.frame_limit_entries,
@@ -137,6 +155,36 @@ class SettingsFragmentPresenter(
                 SwitchSetting(
                     setting = Settings.fastForward,
                     titleId = R.string.pref_fast_forward,
+                )
+            )
+        }
+    }
+
+    private fun addTouchSettings(sl: ArrayList<SettingsItem>) {
+        sl.apply {
+            add(
+                IntSetting(
+                    setting = Settings.touchLayoutStyle,
+                    titleId = R.string.pref_touch_layout_style,
+                    descriptionId = R.string.pref_touch_layout_style_description,
+                    choicesId = R.array.touch_layout_style_entries,
+                    valuesId = R.array.touch_layout_style_values
+                )
+            )
+            add(
+                SliderSetting(
+                    setting = Settings.touchOpacity,
+                    titleId = R.string.pref_touch_opacity,
+                    descriptionId = R.string.pref_touch_opacity_description,
+                    min = 10, max = 90, units = "%"
+                )
+            )
+            add(
+                SliderSetting(
+                    setting = Settings.touchSize,
+                    titleId = R.string.pref_touch_size,
+                    descriptionId = R.string.pref_touch_size_description,
+                    min = 65, max = 145, units = "%"
                 )
             )
         }

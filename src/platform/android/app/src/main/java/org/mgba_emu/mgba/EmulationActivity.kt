@@ -11,6 +11,16 @@ package org.mgba_emu.mgba
 
 import android.content.pm.ActivityInfo
 import android.net.Uri
+import android.graphics.Color
+import android.view.Gravity
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import androidx.appcompat.app.AlertDialog
+import androidx.lifecycle.lifecycleScope
+import java.text.DateFormat
+import java.util.Date
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
@@ -52,6 +62,7 @@ import org.mgba_emu.mgba.utils.BiosStore
 import org.mgba_emu.mgba.utils.ConfigManager
 import org.mgba_emu.mgba.utils.LifecycleUtils.collect
 import org.mgba_emu.mgba.utils.SaveDataStore
+import org.mgba_emu.mgba.utils.SaveStateStore
 import org.mgba_emu.mgba.utils.SearchLocationHelper
 import org.mgba_emu.mgba.utils.ViewUtils.applySafePadding
 
@@ -59,9 +70,11 @@ class EmulationActivity : AppCompatActivity() {
     private lateinit var binding: ActivityEmulationBinding
     private lateinit var inputState: InputState
     private lateinit var glSurfaceView: GLSurfaceView
+    private lateinit var glRenderer: OpenGLRenderer
     private lateinit var frameBuffer: FrameBuffer
 
     private var currentGame: GameModel? = null
+    private lateinit var stateStore: SaveStateStore
 
     private var emulationThread: EmulationThread? = null
 
@@ -89,6 +102,7 @@ class EmulationActivity : AppCompatActivity() {
             currentGame ?: return finish()
         }
 
+        stateStore = SaveStateStore(this, currentGame!!.uri)
         ConfigManager.gameFileName = currentGame!!.fileName
         ConfigManager.shouldHandleInGameMenu = true
 
@@ -128,6 +142,11 @@ class EmulationActivity : AppCompatActivity() {
                     true
                 }
 
+                R.id.menu_save_states -> {
+                    showSaveStateDialog()
+                    true
+                }
+
                 R.id.menu_settings -> {
                     openSettings()
                     true
@@ -156,6 +175,10 @@ class EmulationActivity : AppCompatActivity() {
             this,
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    if (binding.touchControlsView.isEditing) {
+                        binding.touchControlsView.finishEditing()
+                        return
+                    }
                     binding.drawerLayout.apply {
                         if (isOpen) close() else open()
                     }
@@ -201,6 +224,156 @@ class EmulationActivity : AppCompatActivity() {
         settingsFragment.show(supportFragmentManager, "SettingsFragment")
     }
 
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density + 0.5f).toInt()
+
+    /**
+     * Slots and thumbnails are drawn only in the UI layer. The drawer remains
+     * open, so the emulation thread is paused during save/load.
+     */
+    private fun showSaveStateDialog() {
+        val slots = stateStore.list()
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+        }
+        lateinit var dialog: AlertDialog
+        for (slot in slots) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(8), 0, dp(8))
+            }
+            val preview = ImageView(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(116), dp(78))
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                setBackgroundColor(Color.rgb(34, 34, 42))
+                val bitmap = if (slot.occupied) stateStore.thumbnail(slot.index) else null
+                if (bitmap != null) setImageBitmap(bitmap)
+                else setImageResource(R.drawable.mgba)
+            }
+            row.addView(preview)
+            val detail = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(10), 0, 0, 0)
+            }
+            detail.addView(TextView(this).apply {
+                text = getString(R.string.save_state_slot, slot.index)
+                textSize = 16f
+            })
+            detail.addView(TextView(this).apply {
+                text = if (slot.occupied) {
+                    DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT)
+                        .format(Date(slot.modifiedAt))
+                } else {
+                    getString(R.string.save_state_empty)
+                }
+                textSize = 12f
+            })
+            val actions = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val save = Button(this).apply {
+                text = getString(R.string.save_state_save)
+                isAllCaps = false
+                textSize = 12f
+                setPadding(0, 0, 0, 0)
+            }
+            save.setOnClickListener {
+                val action = { saveSnapshot(slot.index, dialog) }
+                if (slot.occupied) {
+                    AlertDialog.Builder(this)
+                        .setTitle(R.string.save_state_overwrite_title)
+                        .setMessage(getString(R.string.save_state_overwrite_message, slot.index))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(R.string.save_state_save) { _, _ -> action() }
+                        .show()
+                } else action()
+            }
+            actions.addView(save, LinearLayout.LayoutParams(0, dp(48), 1f))
+            val load = Button(this).apply {
+                text = getString(R.string.save_state_load)
+                isAllCaps = false
+                textSize = 12f
+                isEnabled = slot.occupied
+                setPadding(0, 0, 0, 0)
+            }
+            load.setOnClickListener { restoreSnapshot(slot.index, dialog) }
+            actions.addView(load, LinearLayout.LayoutParams(0, dp(48), 1f))
+            val delete = Button(this).apply {
+                text = getString(R.string.save_state_delete)
+                isAllCaps = false
+                textSize = 12f
+                isEnabled = slot.occupied
+                setPadding(0, 0, 0, 0)
+            }
+            delete.setOnClickListener {
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.save_state_delete)
+                    .setMessage(getString(R.string.save_state_delete_message, slot.index))
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .setPositiveButton(R.string.save_state_delete) { _, _ ->
+                        val ok = stateStore.delete(slot.index)
+                        Toast.makeText(this,
+                            if (ok) R.string.save_state_deleted else R.string.save_state_failed,
+                            Toast.LENGTH_SHORT).show()
+                        dialog.dismiss()
+                        showSaveStateDialog()
+                    }.show()
+            }
+            actions.addView(delete, LinearLayout.LayoutParams(0, dp(48), 1f))
+            detail.addView(actions)
+            row.addView(detail, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            content.addView(row)
+        }
+        val scroll = ScrollView(this).apply { addView(content) }
+        dialog = AlertDialog.Builder(this)
+            .setTitle(R.string.save_states)
+            .setView(scroll)
+            .setNegativeButton(android.R.string.cancel, null)
+            .create()
+        dialog.show()
+    }
+
+    private fun saveSnapshot(slot: Int, dialog: AlertDialog) {
+        lifecycleScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                val state = Core.exportState() ?: return@withContext false
+                val png = try { stateStore.captureThumbnail() }
+                    catch (e: Exception) {
+                        Log.w(LOG_TAG, "Snapshot thumbnail failed", e)
+                        null
+                    }
+                stateStore.save(slot, state, png)
+            }
+            Toast.makeText(this@EmulationActivity,
+                if (ok) R.string.save_state_saved else R.string.save_state_failed,
+                Toast.LENGTH_SHORT).show()
+            if (dialog.isShowing) {
+                dialog.dismiss()
+                showSaveStateDialog()
+            }
+        }
+    }
+
+    private fun restoreSnapshot(slot: Int, dialog: AlertDialog) {
+        lifecycleScope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                val bytes = stateStore.load(slot) ?: return@withContext false
+                Core.importState(bytes)
+            }
+            Toast.makeText(this@EmulationActivity,
+                if (ok) R.string.save_state_loaded else R.string.save_state_failed,
+                Toast.LENGTH_SHORT).show()
+            if (ok) {
+                // Closing the drawer resumes emulation from the restored frame.
+                dialog.dismiss()
+                binding.drawerLayout.close()
+            }
+        }
+    }
+
     private fun showOverlayOptions() {
         val anchor = binding.inGameMenu.findViewById<View>(R.id.menu_overlay_options)
         val popup = PopupMenu(this, anchor)
@@ -216,6 +389,17 @@ class EmulationActivity : AppCompatActivity() {
                 R.id.menu_toggle_fps -> {
                     it.isChecked = !it.isChecked
                     Settings.fpsCounter.value = it.isChecked
+                    true
+                }
+                R.id.menu_edit_touch_layout -> {
+                    binding.drawerLayout.close()
+                    binding.touchControlsView.beginEditing()
+                    Toast.makeText(this, R.string.touch_layout_hint, Toast.LENGTH_LONG).show()
+                    true
+                }
+                R.id.menu_reset_touch_layout -> {
+                    binding.touchControlsView.resetPositions()
+                    Toast.makeText(this, R.string.touch_layout_reset_done, Toast.LENGTH_SHORT).show()
                     true
                 }
                 else -> true
@@ -320,13 +504,36 @@ class EmulationActivity : AppCompatActivity() {
     private fun setupGlSurface() {
         glSurfaceView = binding.glSurfaceView
         glSurfaceView.setEGLContextClientVersion(2)
-        glSurfaceView.setRenderer(OpenGLRenderer(frameBuffer))
+        glRenderer = OpenGLRenderer(frameBuffer, applicationContext)
+        glSurfaceView.setRenderer(glRenderer)
         glSurfaceView.renderMode = GLSurfaceView.RENDERMODE_WHEN_DIRTY
 
     }
 
     private fun setupTouchControls() {
         binding.touchControlsView.inputState = inputState
+        // Changes are applied on the GL render thread on the next frame.
+        Settings.glslShader.flow.distinctUntilChanged().collect(this) { mode ->
+            glRenderer.requestedShaderId = mode
+            glSurfaceView.requestRender()
+        }
+        Settings.upscalingFilter.flow.distinctUntilChanged().collect(this) { filter ->
+            glRenderer.requestedUpscaleId = filter
+            glSurfaceView.requestRender()
+        }
+        Settings.touchLayoutStyle.flow.distinctUntilChanged().collect(this) { style ->
+            // Shared mode setting controls BOTH visible hit areas and GL viewport.
+            // @Volatile flag is read by the GL thread when it next draws a frame.
+            glRenderer.classicMode = (style == 1)
+            binding.touchControlsView.setLayoutStyle(style)
+            glSurfaceView.requestRender()
+        }
+        Settings.touchOpacity.flow.distinctUntilChanged().collect(this) {
+            binding.touchControlsView.setOpacity(it)
+        }
+        Settings.touchSize.flow.distinctUntilChanged().collect(this) {
+            binding.touchControlsView.setSize(it)
+        }
     }
 
     private fun loadRomFromUri(uri: Uri) {

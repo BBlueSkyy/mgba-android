@@ -117,6 +117,10 @@ object Core {
         return Platform.from(nativeGetPlatform())
     }
 
+    // Complete emulator snapshots; saved-game .sav management remains separate.
+    fun exportState(): ByteArray? = nativeExportState()
+    fun importState(bytes: ByteArray): Boolean = nativeImportState(bytes)
+
     fun loadSaveData(saveBytes: ByteArray): Boolean = nativeLoadSaveData(saveBytes)
     fun exportSaveData(): ByteArray = nativeExportSaveData()
 
@@ -163,6 +167,8 @@ object Core {
     private external fun nativeGetWidth(): Int
     private external fun nativeGetHeight(): Int
     private external fun nativeSetKeys(keyMask: Int)
+    private external fun nativeExportState(): ByteArray?
+    private external fun nativeImportState(state: ByteArray): Boolean
     private external fun nativeLoadSaveData(saveData: ByteArray): Boolean
     private external fun nativeExportSaveData(): ByteArray
     private external fun nativeGetGameTitle(): String?

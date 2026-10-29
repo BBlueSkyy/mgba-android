@@ -18,6 +18,7 @@ object Settings {
         SECTION_SYSTEM(R.string.preferences_system),
         SECTION_RENDERER(R.string.preferences_graphics),
         SECTION_AUDIO(R.string.preferences_audio),
+        SECTION_CONTROLS(R.string.preferences_controls),
         SECTION_THEME(R.string.preferences_theme),
     }
 
@@ -51,10 +52,16 @@ object Settings {
     // Graphics
     val graphicsApi = IntPref("pref_graphics_api", 0)
     val upscalingFilter = IntPref("pref_upscaling_filter", 0)
+    val glslShader = IntPref("pref_glsl_shader", 0)
     val frameLimit = IntPref("pref_frame_limit", 0)
     val screenOrientation = IntPref("pref_screen_orientation", 0)
     val fpsCounter = BoolPref("pref_fps_counter", false)
     val fastForward = BoolPref("pref_fast_forward", false)
+
+    // Touch controls
+    val touchLayoutStyle = IntPref("pref_touch_layout_style", 0)
+    val touchOpacity = IntPref("pref_touch_opacity", 38)
+    val touchSize = IntPref("pref_touch_size", 100)
 
     // Audio
     val volume = IntPref("pref_volume", 100)

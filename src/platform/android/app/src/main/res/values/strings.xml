@@ -21,6 +21,19 @@
     <string name="status_loaded">Loaded: %1$s</string>
     <string name="use_global_setting">Use global setting</string>
     <string name="resume">Resume</string>
+    <string name="save_states">Save States</string>
+    <string name="save_state_slot">Slot %1$d</string>
+    <string name="save_state_empty">Empty slot</string>
+    <string name="save_state_save">Save</string>
+    <string name="save_state_load">Load</string>
+    <string name="save_state_delete">Delete</string>
+    <string name="save_state_overwrite_title">Overwrite save state?</string>
+    <string name="save_state_overwrite_message">Replace the existing state in slot %1$d?</string>
+    <string name="save_state_delete_message">Delete the state and screenshot in slot %1$d?</string>
+    <string name="save_state_saved">State saved</string>
+    <string name="save_state_loaded">State loaded</string>
+    <string name="save_state_deleted">State deleted</string>
+    <string name="save_state_failed">Save state operation failed</string>
     <string name="exit">Exit</string>
     <string name="settings">Settings</string>
     <string name="settings_per_game">Per-Game Settings</string>
@@ -54,6 +67,19 @@
     <string name="preferences_graphics">Graphics</string>
     <string name="preferences_graphics_description">API, orientation, frame limit</string>
     <string name="preferences_audio">Audio</string>
+    <string name="preferences_controls">Touch Controls</string>
+    <string name="preferences_controls_description">Opacity, size, and control placement</string>
+    <string name="pref_touch_layout_style">Control layout</string>
+    <string name="pref_touch_layout_style_description">Default layout or GBA Classic side panels (landscape)</string>
+    <string name="pref_touch_opacity">Control opacity</string>
+    <string name="pref_touch_opacity_description">Adjust the transparency of on-screen buttons</string>
+    <string name="pref_touch_size">Control size</string>
+    <string name="pref_touch_size_description">Resize on-screen buttons without changing input behavior</string>
+    <string name="menu_edit_touch_layout">Edit control positions</string>
+    <string name="menu_reset_touch_layout">Reset control positions and sizes</string>
+    <string name="touch_layout_done">DONE</string>
+    <string name="touch_layout_hint">Tap a control, then use − / + or pinch to resize. Drag to move. Tap DONE to save.</string>
+    <string name="touch_layout_reset_done">Control positions and sizes reset</string>
     <string name="preferences_audio_description">Output engine, mute, volume</string>
     <string name="preferences_theme">Theme and color</string>
 
@@ -64,6 +90,8 @@
     <!-- Preferences Graphics -->
     <string name="pref_graphics_api">API</string>
     <string name="pref_upscaling_filter">Upscaling Filter</string>
+    <string name="pref_glsl_shader">GLSL Shader</string>
+    <string name="pref_glsl_shader_description">Pixel-art enhancement or LCD simulation (OpenGL ES)</string>
     <string name="pref_frame_limit">Frame Limit</string>
     <string name="pref_screen_orientation">Orientation</string>
     <string name="pref_show_fps">Show FPS</string>
