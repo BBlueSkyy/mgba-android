@@ -11,9 +11,11 @@
 package org.mgba_emu.mgba.input
 
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 
 class InputState {
     private val mask = AtomicInteger(0)
+    private val fastForwardHeld = AtomicBoolean(false)
 
     fun press(key: Int) {
         mask.updateAndGet { it or key }
@@ -24,4 +26,8 @@ class InputState {
     }
 
     fun current(): Int = mask.get()
+
+    // Not a GBA key: holding the on-screen speed button never reaches the ROM.
+    fun setFastForwardHeld(held: Boolean) { fastForwardHeld.set(held) }
+    fun isFastForwardHeld(): Boolean = fastForwardHeld.get()
 }

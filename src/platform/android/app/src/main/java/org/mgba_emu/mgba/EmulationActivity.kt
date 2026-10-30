@@ -616,6 +616,8 @@ class EmulationActivity : AppCompatActivity() {
     }
 
     private fun pauseEmulation() {
+        // Never carry a held speed key across the drawer or backgrounding.
+        if (::inputState.isInitialized) binding.touchControlsView.releaseAllTouches()
         emulationThread?.paused = true
         glSurfaceView.onPause()
         persistSaveData()

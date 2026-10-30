@@ -59,7 +59,7 @@ class EmulationThread(
             val now = System.nanoTime()
             val remainingNs = nextFrameDeadlineNs - now
 
-            if (Settings.fastForward.value) {
+            if (Settings.fastForward.value || inputState.isFastForwardHeld()) {
                 // skip sleeping to run as fast as possible
                 nextFrameDeadlineNs = now
             } else {

@@ -40,6 +40,7 @@ class TouchControlsView @JvmOverloads constructor(
 
     private val positions = context.getSharedPreferences("touch_layout_positions", Context.MODE_PRIVATE)
     private val pointerKeys = mutableMapOf<Int, Int>()
+    private val fastForwardPointers = mutableSetOf<Int>()
     private val controls = mutableListOf<Control>()
     private val controlById get() = controls.associateBy { it.id }
 
@@ -245,6 +246,13 @@ class TouchControlsView @JvmOverloads constructor(
             w - margin - shoulderW / 2, margin + shoulderH / 2,
             shoulderW / 2 * controlScale("r"), shoulderH / 2 * controlScale("r"))
         val density = resources.displayMetrics.density
+        // Small double-chevron near the upper center, away from the D-pad and A/B.
+        val ffHalfW = max(24f * density, min(w * .048f, 54f * density)) *
+            s * controlScale("fast_forward")
+        val ffHalfH = max(14f * density, h * .032f) *
+            s * controlScale("fast_forward")
+        addControl("fast_forward", 0, "»", Shape.PILL,
+            w * .50f, h * .25f, ffHalfW, ffHalfH)
         val toolbarTop = 10f * density
         val toolbarBottom = 50f * density
         val doneWidth = max(84f * density, w * .13f)
@@ -302,6 +310,13 @@ class TouchControlsView @JvmOverloads constructor(
             w - panel * .50f, h * .85f,
             min(smallHalfW * controlScale("start"), panel * .44f),
             min(smallHalfH * controlScale("start"), h * .065f))
+
+        // Fast Forward fits between L and the D-pad on the left purple panel.
+        val ffHalfW = min(panel * .29f * s * controlScale("fast_forward"), panel * .43f)
+        val ffHalfH = min(max(h * .035f, 12f * resources.displayMetrics.density) *
+            s * controlScale("fast_forward"), h * .06f)
+        addControl("fast_forward", 0, "»", Shape.PILL,
+            panel * .50f, h * .30f, ffHalfW, ffHalfH)
 
         positionEditorTools(w)
         textPaint.textSize = max(17f * resources.displayMetrics.density, min(w, h) * .045f * s)
@@ -417,7 +432,7 @@ class TouchControlsView @JvmOverloads constructor(
         } else {
             classicKeyPath.addRoundRect(rect, rect.height() / 2f, rect.height() / 2f, Path.Direction.CW)
         }
-        drawClassicSurface(canvas, classicKeyPath, rect, isKeyHeld(control.key))
+        drawClassicSurface(canvas, classicKeyPath, rect, isControlHeld(control))
     }
 
     private fun drawClassicBackground(canvas: Canvas) {
@@ -487,7 +502,7 @@ class TouchControlsView @JvmOverloads constructor(
             drawDpad(canvas)
         }
         controls.forEach { control ->
-            val paint = if (isKeyHeld(control.key)) pressedPaint else fillPaint
+            val paint = if (isControlHeld(control)) pressedPaint else fillPaint
             val rect = control.rect
             if (classic) {
                 drawClassicButton(canvas, control)
@@ -566,6 +581,27 @@ class TouchControlsView @JvmOverloads constructor(
 
     private fun isKeyHeld(key: Int): Boolean = pointerKeys.values.any { it and key != 0 }
 
+    private fun isControlHeld(control: Control): Boolean =
+        if (control.id == "fast_forward") fastForwardPointers.isNotEmpty()
+        else isKeyHeld(control.key)
+
+    // UI-only speed button: supports several fingers and can be dragged into/out
+    // of while a finger is down, without adding a bogus GBA keypad bit.
+    private fun updateFastForwardPointer(id: Int, x: Float, y: Float) {
+        val hit = controlById["fast_forward"]?.rect?.contains(x, y) == true
+        if (hit) fastForwardPointers.add(id) else fastForwardPointers.remove(id)
+        if (::inputState.isInitialized) {
+            inputState.setFastForwardHeld(fastForwardPointers.isNotEmpty())
+        }
+    }
+
+    private fun releaseFastForwardPointer(id: Int) {
+        fastForwardPointers.remove(id)
+        if (::inputState.isInitialized) {
+            inputState.setFastForwardHeld(fastForwardPointers.isNotEmpty())
+        }
+    }
+
     private fun drawDpad(canvas: Canvas) {
         val radius = dpadArmWidth / 2f
         val distance = dpadArmLength
@@ -611,7 +647,9 @@ class TouchControlsView @JvmOverloads constructor(
     }
 
     private fun clearHeldKeys() {
+        fastForwardPointers.clear()
         if (!::inputState.isInitialized) { pointerKeys.clear(); return }
+        inputState.setFastForwardHeld(false)
         val held = pointerKeys.values.fold(0) { mask, value -> mask or value }
         var bit = 1
         while (bit <= max(GbaKey.L, GbaKey.R)) {
@@ -619,6 +657,17 @@ class TouchControlsView @JvmOverloads constructor(
             bit = bit shl 1
         }
         pointerKeys.clear()
+    }
+
+    // Also called when pausing the app or opening its drawer.
+    fun releaseAllTouches() {
+        clearHeldKeys()
+        invalidate()
+    }
+
+    override fun onDetachedFromWindow() {
+        releaseAllTouches()
+        super.onDetachedFromWindow()
     }
 
     fun beginEditing() {
@@ -658,11 +707,15 @@ class TouchControlsView @JvmOverloads constructor(
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
                 val idx = event.actionIndex
-                applyPointerKeys(event.getPointerId(idx), resolveKeysAt(event.getX(idx), event.getY(idx)))
+                val id = event.getPointerId(idx)
+                updateFastForwardPointer(id, event.getX(idx), event.getY(idx))
+                applyPointerKeys(id, resolveKeysAt(event.getX(idx), event.getY(idx)))
             }
             MotionEvent.ACTION_MOVE -> {
                 for (i in 0 until event.pointerCount) {
-                    applyPointerKeys(event.getPointerId(i), resolveKeysAt(event.getX(i), event.getY(i)))
+                    val id = event.getPointerId(i)
+                    updateFastForwardPointer(id, event.getX(i), event.getY(i))
+                    applyPointerKeys(id, resolveKeysAt(event.getX(i), event.getY(i)))
                 }
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> {
@@ -670,6 +723,7 @@ class TouchControlsView @JvmOverloads constructor(
                 val id = event.getPointerId(idx)
                 val previous = pointerKeys.remove(id) ?: 0
                 if (previous != 0) releaseIfNotHeldElsewhere(previous, id)
+                releaseFastForwardPointer(id)
             }
             MotionEvent.ACTION_CANCEL -> clearHeldKeys()
         }
@@ -806,6 +860,8 @@ class TouchControlsView @JvmOverloads constructor(
     }
 
     private fun resolveKeysAt(x: Float, y: Float): Int {
+        // A speed-button hit takes precedence when users reposition controls.
+        if (controlById["fast_forward"]?.rect?.contains(x, y) == true) return 0
         var keys = 0
         val dx = x - dpadCenterX
         val dy = y - dpadCenterY
